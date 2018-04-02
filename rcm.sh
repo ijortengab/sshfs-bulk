@@ -1,10 +1,253 @@
 #!/bin/bash
+ARGUMENTQUIET=0
+LOCALPORTS=() # Storage to save currently using local port.
+
+containsElement () {
+    # Bash version of http://php.net/in_array
+    local e match="$1"
+    shift
+    for e; do [[ "$e" == "$match" ]] && return 0; done
+    return 1
+}
+isOdd () {
+    if [[ ! $1 =~ ^-?[0-9]+$ ]];then
+        echo "Argument harus angka integer (postivie atau negative)."
+        return
+    fi
+    if [[ $(( $1 % 2 )) == 1 ]];then
+        echo 1
+    else
+        echo 0
+    fi
+}
+isEven () {
+    if [[ ! $1 =~ ^-?[0-9]+$ ]];then
+        echo "Argument harus angka integer (postivie atau negative)."
+        return
+    fi
+    if [[ $(( $1 % 2 )) == 0 ]];then
+        echo 1
+    else
+        echo 0
+    fi
+}
+getLocalPortBasedOnHost() {    
+    mkdir -p $HOME/.config/rcm/ports
+    cd $HOME/.config/rcm/ports
+    ARR=(`grep -r $1 | cut -d: -f1`)
+    _port=
+    for f in "${ARR[@]}"
+    do
+        if containsElement $f "${LOCALPORTS[@]}";then 
+            continue
+        else 
+            _port=$f
+            break
+        fi
+    done
+    if [[ $_port == "" ]];then
+        _file=50000
+        while :
+        do
+            if [[ -e $_file ]];then
+                let _file++
+            else
+                break
+            fi
+        done
+        echo $1 > $_file
+        _port=$_file
+    fi
+    echo $_port
+}
+executeTemplate() {
+    _file=$1
+    chmod u+x $_file
+    /bin/bash $_file
+}
+createTemplateSsh () {
+    cat <<TEMPLATE > $1
+#!/bin/bash
+ARGUMENTQUIET=$ARGUMENTQUIET
+NORMAL="\$(tput sgr0)"
+YELLOW="\$(tput setaf 3)"
+GETPID () {
+    LINE=\$(ps x | grep "\$1" | grep -v grep)
+    ARR=(\$LINE)
+    PID=\${ARR[0]}
+    echo \$PID
+}
+NOTICE () {
+    if [[ \$ARGUMENTQUIET == 0 ]];then
+        printf "\${YELLOW}\$1\${NORMAL}\n"
+    fi
+}
+TEMPLATE
+}
+sshCommand () {
+    if [[ ${#ARGUMENTS[@]} == 0 ]];then
+        echo "Error. Argument tidak ada."
+        return
+    fi
+    if [[ $(isEven ${#ARGUMENTS[@]}) == 1 ]];then
+        echo "Error. Argument tidak boleh genap."
+        return
+    fi
+    if [[ ${#ARGUMENTS[@]} == 1 ]];then
+        ssh ${ARGUMENTS[0]}
+        return
+    fi
+    # Parse Argument then populate array.
+    HOSTS=()
+    USERS=()
+    PORTS=()
+    LOCALPORTS=() # Reset
+    for (( I=0; I < ${#ARGUMENTS[@]} ; I++ )); do
+        O=$(( $I + 1 ))
+        if [[ ${ARGUMENTS[$I]} =~ " " ]];then
+            echo Error. Argument \'${ARGUMENTS[$I]}\' mengandung karakter spasi.
+            return
+        fi
+        if [[ $(isEven $O) == 1 ]];then
+            if [[ ! ${ARGUMENTS[$I]} == 'via' ]];then
+                echo "Error. Argument posisi genap tidak bernilai 'via'."
+                return
+            fi
+            continue
+        fi
+        HOST=${ARGUMENTS[$I]}
+        USER=$(echo $HOST | grep -E -o '^[^@]+@')
+        if [[ $USER == "" ]];then
+            USER=---
+        else
+            HOST=$(echo $HOST | sed 's/^'$USER'//' )
+            USER=$(echo $USER | grep -E -o '[^@]+')
+        fi
+        PORT=$(echo $HOST | grep -E -o ':[0-9]+$')
+        if [[ $PORT == "" ]];then
+            PORT=22
+        else
+            HOST=$(echo $HOST | sed 's/'$PORT'$//' )
+            PORT=$(echo $PORT | grep -E -o '[0-9]+')
+        fi
+        # echo $HOST
+        # echo $I
+        # echo 
+        HOSTS+=("$HOST")
+        USERS+=("$USER")
+        PORTS+=("$PORT")
+        if [[ ! $I == $((${#ARGUMENTS[@]} - 1)) ]];then
+            # Host selain yang terakhir pada argument, maka buat local portnya.
+            LOCALPORT=$(getLocalPortBasedOnHost $HOST)
+            LOCALPORTS+=($LOCALPORT)
+        fi
+    done
+    # exit
+    # Create array LINES
+    M=1 # Mark. Just flag for first looping.
+    LINES=()
+    for (( I=$(( ${#HOSTS[@]} - 1 )); I >= 0 ; I-- )); do
+        LINE="ssh"
+        _I=$(( $I - 1 ))
+        if [[ ! $I == 0 ]];then
+            LINE+=" -fN "
+            if [[ ! ${USERS[$I]} == "---" ]];then
+                LINE+="${USERS[$I]}@"
+            fi
+            if [[ $M == 1 ]];then
+                LINE+="${HOSTS[$I]}"
+                if [[ ! ${PORTS[$I]} == 22 ]];then
+                    LINE+=" -p ${PORTS[$I]}"
+                fi
+                M=0
+            else
+                LINE+="localhost"
+                LINE+=" -p ${LOCALPORTS[$I]}"
+            fi
+            LINE+=" -L ${LOCALPORTS[$_I]}:${HOSTS[$_I]}:"
+            LINE+="${PORTS[$_I]}"
+        else
+            LINE+=" "
+            if [[ ! ${USERS[$I]} == "---" ]];then
+                LINE+="${USERS[$I]}@"
+            fi
+            LINE+="localhost"
+            LINE+=" -p ${LOCALPORTS[$I]}"
+        fi
+        LINES+=("$LINE")
+    done
+    # Create and fill template.    
+    mkdir -p $HOME/.cache/rcm
+    _file=$HOME/.cache/rcm/ssh
+    createTemplateSsh $_file
+    L=$(( ${#HOSTS[@]} - 1 )) # Just flag for the last.
+    for (( I=0; I < ${#LINES[@]} ; I++ )); do
+        if [[ ! $L == 0 ]];then
+            NOTICE='NOTICE "Create tunnel on '
+        else
+            NOTICE='NOTICE "SSH connect to '
+        fi
+        if [[ ! ${USERS[$L]} == "---" ]];then
+            NOTICE+="${USERS[$L]}@"
+        fi
+        NOTICE+="${HOSTS[$L]}"
+        if [[ ! ${PORTS[$L]} == 22 ]];then
+            LINE+=":${PORTS[$L]}"
+        fi
+        NOTICE+='."'
+        echo $NOTICE >> $_file
+        echo ${LINES[$I]} >> $_file
+        let L--
+    done
+    M=1 # Mark. Just flag for first looping.
+    F=0 # First. Just key for incremental.
+    for (( I=$(( ${#LINES[@]} - 1 )); I >= 0 ; I-- )); do
+        if [[ $M == 1 ]];then
+            M=0
+            let F++
+            continue
+        fi
+        NOTICE='NOTICE "Destroy tunnel on '
+        if [[ ! ${USERS[$F]} == "---" ]];then
+            NOTICE+="${USERS[$F]}@"
+        fi
+        NOTICE+="${HOSTS[$F]}"
+        if [[ ! ${PORTS[$F]} == 22 ]];then
+            LINE+=":${PORTS[$F]}"
+        fi
+        NOTICE+='."'
+        echo $NOTICE >> $_file
+        echo 'kill $(GETPID "'${LINES[$I]}'")' >> $_file
+        let F++
+    done
+    # Execute.
+    executeTemplate $_file
+}
+
+sshfsCommand () {
+    for f in "${ARGUMENTS[@]}"
+    do
+        echo $f
+    done
+}
+rsyncCommand () {
+    for f in "${ARGUMENTS[@]}"
+    do
+        echo $f
+    done
+}
+smbCommand () {
+    for f in "${ARGUMENTS[@]}"
+    do
+        echo $f
+    done
+}
 
 # Progress: Ahad, 18 Februari 2018
 # Sudah ada form wizard untuk add connection
 # Sudah ada form wizard untuk select connection
 # Sudah ada page untuk list connection meski perlu perbaikan path.
-# Usage sudah di definisikan dengan membuat calon halaman help. 
+# Usage sudah di definisikan dengan membuat calon halaman help.
 #
 # PR berikutnya
 # - bermain dengan fungsi connectSSH
@@ -13,11 +256,11 @@
 welcomeMessage() {
 while :
 do
-    echo -e "\e[92m# Welcome to SSRS wizard\e[39m"
+    echo -e "\e[92m# Welcome to RCM wizard\e[39m"
     echo
-    echo SSRS is management remote connection.
+    echo RCM is Remote Connection Manager.
     echo It will generate shell script about ssh, sshfs, rsync, and samba.
-    echo "Try 'ssrs --help' for more information."
+    echo "Try 'rcm --help' for more information."
     echo
     echo "What do you want to do?"
     echo
@@ -53,7 +296,7 @@ done
 }
 # Fungsi perlu perbaikan
 listAllConnection() {
-    cd ~/.config/ssrs/enabled
+    cd ~/.config/RCM/enabled
     OIFS="$IFS"
     IFS=$'\n'
     for file in `find . `
@@ -165,7 +408,7 @@ createScript() {
         isVariation=1
     fi
     # connections
-    storageDir=~/.config/ssrs/connections
+    storageDir=~/.config/RCM/connections
     /bin/mkdir -p $storageDir
     if [[ ! $port == 22 ]]; then
         i=1
@@ -308,12 +551,12 @@ done
 # return variable: $selectedConnection
 wizardFormSelectConnection() {
 define=10
-countAll=$(ls -U ~/.config/ssrs/enabled | wc -l)
+countAll=$(ls -U ~/.config/RCM/enabled | wc -l)
 if (( $countAll > $define ));then
-    list=(`ls -vr ~/.config/ssrs/enabled | head -$define`)
+    list=(`ls -vr ~/.config/RCM/enabled | head -$define`)
     judul="Showing $define popular connection"
 else
-    list=(`ls ~/.config/ssrs/enabled`)
+    list=(`ls ~/.config/RCM/enabled`)
     judul="Showing All connection"
 fi
 array=()
@@ -321,7 +564,7 @@ count=-1
 for t in "${list[@]}"
 do
     let count++
-    line="| \e[93m$count\e[39m | "$(cat ~/.config/ssrs/enabled/$t)
+    line="| \e[93m$count\e[39m | "$(cat ~/.config/RCM/enabled/$t)
     array=("${array[@]}" "$line")
 done
 while :
@@ -368,12 +611,12 @@ do
     done
     match='^\s*grep\s+'
     if [[ $input =~ $match ]]; then
-        all=(`ls -U ~/.config/ssrs/enabled`)
+        all=(`ls -U ~/.config/RCM/enabled`)
         array=()
         count=-1
         for a in "${all[@]}"
         do
-            c=$(cat ~/.config/ssrs/enabled/$a | $input)
+            c=$(cat ~/.config/RCM/enabled/$a | $input)
             if [[ ! $c == "" ]];then
                 let count++
                 line="| \e[93m$count\e[39m | $c"
@@ -414,55 +657,54 @@ if [ -t 0 ]; then
         welcomeMessage
     # Jika ada argument, maka
     else
-        POSITIONAL=()
+        ARGUMENTS=()
         command=
         while [[ $# -gt 0 ]]
         do
         key="$1"
-
         case $key in
-            l|list)
-            command=list
-            EXTENSION="$2"
-            shift # past argument
-            # shift # past value
-            ;;
-            a|add)
-            command=add
-            SEARCHPATH="$2"
-            shift # past argument
-            # shift # past value
-            ;;
-            -l|--lib)
-            LIBPATH="$2"
-            shift # past argument
-            shift # past value
-            ;;
-            --default)
-            DEFAULT=YES
-            shift # past argument
-            ;;
-            *)    # unknown option
-            POSITIONAL+=("$1") # save it in an array for later
-            shift # past argument
+            ssh|sshfs|rsync|smb)
+                command=$1
+                shift
+                ;;
+            -q|--quiet)
+                ARGUMENTQUIET=1
+                shift
+                ;;
+            *)
+            ARGUMENTS+=("$1")
+            shift
             ;;
         esac
         done
-        set -- "${POSITIONAL[@]}" # restore positional parameters
+        set -- "${ARGUMENTS[@]}" # restore positional parameters
 
-        # echo ${POSITIONAL}
-
-        for f in "${POSITIONAL[@]}"
-        do
-            echo $f
-            # echo
-        done
+        # echo ${ARGUMENTS}
+        # echo ---------------------------
+        # echo
+        # for f in "${ARGUMENTS[@]}"
+        # do
+            # echo $f
+        # done
+        # echo ---------------------------
+        # exit
+        #----------------------------------------------------------#
+        #                    Execute Commands                      #
+        #----------------------------------------------------------#
         case $command in
-            l|list)
-            listAllConnection
-            ;;
+            ssh)
+                sshCommand ${ARGUMENTS}
+                ;;
+            sshfs)
+                sshfsCommand ${ARGUMENTS}
+                ;;
+            rsync)
+                rsyncCommand ${ARGUMENTS}
+                ;;
+            smb)
+                smbCommand ${ARGUMENTS}
+                ;;
             add)
-            # echo tambah oy
             clear
             addNewConnection
             ;;
