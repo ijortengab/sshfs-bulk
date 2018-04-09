@@ -6,14 +6,16 @@
 # - temporary variable diawali dengan _underscore.
 # - function is camelCase.
 
+linesPre=()
+lines=()
+linesPost=()
+
 # Default value.
 verbose=1
 interactive=0
 RCM_ROOT=$HOME/.config/rcm
 RCM_DIR_PORTS=$RCM_ROOT/ports
-
-    # mkdir -p
-    # cd $HOME/.config/rcm/ports
+RCM_EXE=$RCM_ROOT/exe
 
 # *arguments* adalah array penampungan semua argument.
 # Argument pertama ($1) nantinya akan diset menjadi command.
@@ -35,52 +37,51 @@ arguments=()
 # pass_arguments=(empat lima)
 pass_arguments=()
 
-# *route* adalah string yang berisi server tujuan dan (jika ada) server-server
-# lain yang menjadi batu loncatan (tunnel). Pola penamaannya adalah
-# [$user@]$host[:$port] [via ...]
+# *destination* adalah string yang bernilai server tujuan dan (jika ada)
+# server-server lain yang menjadi batu loncatan (tunnel). Pola penamaannya
+# adalah [$user@]$host[:$port] [via ...]
 # Contoh:
 # ```
-# route=user@virtualmachine
-# route=user@virtualmachine via foo@office.local via proxy@company.com
+# destination=user@virtualmachine
+# destination=user@virtualmachine via foo@office.lan via proxy@company.com
 # ```
-# Variable ini akan diisi berdasarkan argument.
-route=
+# Variable ini akan diisi oleh fungsi execute.
+destination=
 
 # *hosts*, *ports*, dan *users* adalah array yang merupakan parse info dari
-# *route*. Contoh, jika:
+# *destination*. Contoh, jika:
 # ```
-# route=user@virtualmachine via foo@office.local via proxy@company.com
+# destination=user@virtualmachine via foo@office.lan via proxy@company.com:2222
 # ```
 # maka,
 # ```
-# hosts=(virtualmachine office.local company.com)
-# ports=(22 22 22)
+# hosts=(virtualmachine office.lan company.com)
+# ports=(22 22 2222)
 # users=(user foo proxy)
 # ```
-# Variable ini akan diisi oleh fungsi parseRoute.
+# Variable ini akan diisi oleh fungsi parseDestination.
 hosts=()
 ports=()
 users=()
 
 # *local_ports* merupakan array yang menjadi local port forwarding untuk
-# kebutuhan tunneling berdasarkan informasi pada variable ROUTE.
+# kebutuhan tunneling berdasarkan informasi pada variable $destination.
 # Contoh, jika:
 # ```
-# route=user@virtualmachine via foo@office.local via proxy@company.com
+# destination=user@virtualmachine via foo@office.lan via proxy@company.com
 # ```
 # Maka,
 # host virtualmachine akan diset local port forwarding misalnya 50000
-# host office.local akan diset local port forwarding misalnya 50001
+# host office.lan akan diset local port forwarding misalnya 50001
 # host company.com tidak perlu local port forwarding karena dia menjadi koneksi
-# langsung.
-# sehingga hasil akhir menjadi
+# langsung. Sehingga hasil akhir menjadi:
 # ```
 # local_ports=(50000 50001)
 # ```
-# Variable ini akan diisi oleh fungsi parseRoute dan getLocalPortBasedOnHost().
+# Variable ini akan diisi oleh fungsi getLocalPortBasedOnHost().
 # Penggunaan local port seperti pada command berikut:
 # ```
-# ssh -fN proxy@company.com -L 50001:office.local:22
+# ssh -fN proxy@company.com -L 50001:office.lan:22
 # ssh -fN foo@localhost -p 50001 -L 50000:virtualmachine:22
 # ssh user@localhost -p 50000
 # ```
@@ -127,12 +128,31 @@ executeTemplate() {
     local yellow="$(tput setaf 3)"
     local cyan="$(tput setaf 6)"
     local execute=1
+    local string
+    local compileLines
+    compileLines=()
+    for string in "${linesPre[@]}"
+    do
+        compileLines+=("$string")
+    done
+    for string in "${lines[@]}"
+    do
+        compileLines+=("$string")
+    done
+    for string in "${linesPost[@]}"
+    do
+        compileLines+=("$string")
+    done
+
     if [[ $interactive == 1 ]];then
-        printf "${red}Preview generated script.${normal}\n"
-        printf "${red}\`\`\`${normal}\n"
-        printf "${cyan}"
-        cat $file
-        printf "${red}\`\`\`${normal}\n"
+        echo "Preview generated script."
+        echo "--------------------------------------------------------------------------------"
+        echo "#!/bin/bash"
+        for string in "${compileLines[@]}"
+        do
+            echo "$string"
+        done
+        echo "--------------------------------------------------------------------------------"
         read -p "Do you want to execute (y/N): " option
         case $option in
             n|N|no)
@@ -147,8 +167,13 @@ executeTemplate() {
         esac
     fi
     if [[ $execute == 1 ]];then
-        chmod u+x $file
-        /bin/bash $file
+        echo '#!/bin/bash' > $RCM_EXE
+        for string in "${compileLines[@]}"
+        do
+            echo $string >> $RCM_EXE
+        done
+        chmod u+x $RCM_EXE
+        /bin/bash $RCM_EXE
     fi
 }
 
@@ -198,7 +223,9 @@ done
 
 # Fungsi untuk mengeksekusi rcm jika diberi argument.
 execute() {
-    local i o s flag subcommand options mass_arguments pass_arguments
+    local h i j
+    local string flag order
+    local subcommand options mass_arguments pass_arguments
 
     # Verifikasi dan populate command.
     case "${arguments[0]}" in
@@ -213,19 +240,19 @@ execute() {
     flag=0
     for (( i=0; i < ${#arguments[@]} ; i++ )); do
         if [[ $i == 0 ]];then continue; fi
-        s=${arguments[$i]}
-        case $s in
+        string=${arguments[$i]}
+        case $string in
            -p|--pass)
                 flag=1
                 continue
                 ;;
         esac
         if [[ $flag == 1 ]];then
-            pass_arguments+=("$s")
-        elif [[ $s =~ ^- ]];then
-            options+=("$s")
+            pass_arguments+=("$string")
+        elif [[ $string =~ ^- ]];then
+            options+=("$string")
         else
-            mass_arguments+=("$s")
+            mass_arguments+=("$string")
         fi
     done
 
@@ -249,16 +276,16 @@ execute() {
         exit
     fi
 
-    # Verifikasi dan populate variable $route.
+    # Verifikasi dan populate variable $destination.
     case $subcommand in
         ssh|send-key)
             for (( i=0; i < ${#mass_arguments[@]} ; i++ )); do
-                o=$(( $i + 1 ))
+                j=$(( $i + 1 ))
                 if [[ ${mass_arguments[$i]} =~ " " ]];then
                     echo "Error. Argument '${mass_arguments[$i]}' mengandung karakter spasi." >&2
                     exit
                 fi
-                if isEven $o ;then
+                if isEven $j ;then
                     if [[ ! ${mass_arguments[$i]} == 'via' ]];then
                         echo "Error. Argument '${mass_arguments[$i]}' tidak didahului dengan 'via'." >&2
                         exit
@@ -269,20 +296,20 @@ execute() {
                 echo "Error. Argument kurang lengkap."
                 exit
             fi
-            # Populate variable route.
+            # Populate variable destination.
             for (( i=0; i < ${#mass_arguments[@]} ; i++ )); do
-                route+=${mass_arguments[$i]}" "
+                destination+=${mass_arguments[$i]}" "
             done
-            parseRoute
+            parseDestination
         ;;
     esac
     # Mulai eksekusi berdasarkan command.
     case $subcommand in
             ssh)
-                sshCommand $route
+                sshCommand $destination
                 ;;
             send-key)
-                sendKeyCommand $route
+                sendKeyCommand $destination
                 ;;
             sshfs)
                 sshfsCommand ${_arguments}
@@ -300,17 +327,17 @@ execute() {
         esac
 }
 
-# Fungsi untuk memparse variable $route untuk nanti mem-populate variable
+# Fungsi untuk memparse variable $destination untuk nanti mem-populate variable
 # terkait.
-parseRoute() {
-    # Ubah string route menjadi array.
-    _route=($route)
-    for (( i=0; i < ${#_route[@]} ; i++ )); do
+parseDestination() {
+    # Ubah string destination menjadi array.
+    _destination=($destination)
+    for (( i=0; i < ${#_destination[@]} ; i++ )); do
         _order=$(( $i + 1 ))
         if isEven $_order;then
             continue
         fi
-        _host=${_route[$i]}
+        _host=${_destination[$i]}
         _user=$(echo $_host | grep -E -o '^[^@]+@')
         if [[ $_user == "" ]];then
             _user=---
@@ -328,7 +355,7 @@ parseRoute() {
         hosts+=("$_host")
         users+=("$_user")
         ports+=("$_port")
-        if [[ ! $i == $((${#_route[@]} - 1)) ]];then
+        if [[ ! $i == $((${#_destination[@]} - 1)) ]];then
             # host selain yang terakhir pada argument, maka buat local portnya.
             _local_port=$(getLocalPortBasedOnHost $_host)
             local_ports+=($_local_port)
@@ -340,164 +367,200 @@ parseRoute() {
 # host dengan melihat variable $local_ports sebagai acuan. Satu host bisa
 # memiliki banyak local port tergantung kebutuhan pembuatan tunnel.
 getLocalPortBasedOnHost() {
-    mkdir -p $HOME/.config/rcm/ports
-    cd $HOME/.config/rcm/ports
-    _array=(`grep -r $1 | cut -d: -f1`)
-    _port=
-    for e in "${_array[@]}"
+    local h i j
+    local string flag order
+    local array port file
+    mkdir -p $RCM_DIR_PORTS
+    cd $RCM_DIR_PORTS
+    array=(`grep -r $1 | cut -d: -f1`)
+    port=
+    for string in "${array[@]}"
     do
-        if containsElement $f "${local_ports[@]}";then
+        if containsElement $string "${local_ports[@]}";then
             continue
         else
-            _port=$e
+            port=$string
             break
         fi
     done
-    if [[ $_port == "" ]];then
-        _file=50000
+    if [[ $port == "" ]];then
+        file=50000
         while :
         do
-            if [[ -e $_file ]];then
-                let _file++
+            if [[ -e $file ]];then
+                let file++
             else
                 break
             fi
         done
-        echo $1 > $_file
-        _port=$_file
+        echo $1 > $file
+        port=$file
     fi
-    echo $_port
+    echo $port
 }
 
+# Fungsi untuk mempersiapkan code untuk generate tunnel dan mengisinya pada
+# variable $linesPre, atau $linesPost.
+writeLinesAddTunnel() {
+    local h i j o
+    local flag
+    local line lines last_index_hosts last_index_lines log
+    lines=()
+    flag=1 # Just flag for last index of $hosts.
+    last_index_hosts=$(( ${#hosts[@]} - 1 )) # Last index of $hosts.
+    for (( i=$last_index_hosts; i > 0 ; i-- )); do
+        h=$(( $i - 1 ))
+        log='echo -e "\e[93m'
+        line="ssh -fN "
+        log+='Create tunnel on '
+        if [[ ! ${users[$i]} == "---" ]];then
+            line+="${users[$i]}@"
+            log+="${users[$i]}@"
+        fi
+        log+="${hosts[$i]}"
+        if [[ ! ${ports[$i]} == 22 ]];then
+            log+=":${ports[$i]}"
+        fi
+        if [[ $flag == 1 ]];then
+            line+="${hosts[$i]}"
+            if [[ ! ${ports[$i]} == 22 ]];then
+                line+=" -p ${ports[$i]}"
+            fi
+            flag=0
+        else
+            line+="localhost"
+            line+=" -p ${local_ports[$i]}"
+        fi
+        line+=" -L ${local_ports[$h]}:${hosts[$h]}:${ports[$h]}"
+        log+='.\e[39m"'
+        if [[ $verbose == 1 ]];then
+            linesPre+=("$log")
+        fi
+        linesPre+=("$line")
+        lines+=("$line")
+    done
+    last_index_lines=$(( ${#lines[@]} - 1 )) # Last index of $lines.
+    o=$last_index_lines
+    for (( i=1; i <= $last_index_hosts ; i++ )); do
+        log=
+        log='echo -e "\e[93m'
+        log+='Destroy tunnel on '
+        if [[ ! ${users[$i]} == "---" ]];then
+            log+="${users[$i]}@"
+        fi
+        log+="${hosts[$i]}"
+        if [[ ! ${ports[$i]} == 22 ]];then
+            log+=":${ports[$i]}"
+        fi
+        log+='.\e[39m"'
+        if [[ $verbose == 1 ]];then
+            linesPost+=("$log")
+        fi
+        line="kill \$(ps aux | grep \""${lines[$o]}"\" | grep -v grep | awk '{print \$2}')"
+        linesPost+=("$line")
+        let o--
+    done
+}
+
+writeLinesVerbose() {
+    if [[ $verbose == 1 ]];then
+        lines+=("$1")
+    fi
+}
 # Fungsi untuk command ssh.
 sshCommand () {
-    _is_last=1 # Just flag for last index of $hosts.
-    _last_index=$(( ${#hosts[@]} - 1 )) # Last index of $hosts.
-    _line=
-    _lines=()
-    if [[ ${#hosts[@]} == 1 ]];then
-        _line+="ssh "
-        if [[ ! ${users[0]} == "---" ]];then
-            _line+=${users[0]}
-            _line+=@
-        fi
-        _line+="${hosts[0]}"
-        if [[ ! ${ports[0]} == 22 ]];then
-            _line+=" -p ${ports[0]}"
-        fi
-        for s in "${pass_arguments[@]}"
-        do
-            _line+=" "
-            _line+=$s
-        done
-        _lines+=("$_line")
-    fi
+    local host port log line
+    local string
+    host=${hosts[0]}
+    port=${ports[0]}
     if [[ ${#hosts[@]} > 1 ]];then
-        for (( i=$_last_index; i >= 0 ; i-- )); do
-            _line="ssh"
-            _i=$(( $i - 1 ))
-            if [[ ! $i == 0 ]];then
-                _line+=" -fN "
-                if [[ ! ${users[$i]} == "---" ]];then
-                    _line+="${users[$i]}@"
-                fi
-                if [[ $_is_last == 1 ]];then
-                    _line+="${hosts[$i]}"
-                    if [[ ! ${ports[$i]} == 22 ]];then
-                        _line+=" -p ${ports[$i]}"
-                    fi
-                    _is_last=0
-                else
-                    _line+="localhost"
-                    _line+=" -p ${local_ports[$i]}"
-                fi
-                _line+=" -L ${local_ports[$_i]}:${hosts[$_i]}:"
-                _line+="${ports[$_i]}"
-            else
-                _line+=" "
-                if [[ ! ${users[$i]} == "---" ]];then
-                    _line+="${users[$i]}@"
-                fi
-                _line+="localhost"
-                _line+=" -p ${local_ports[$i]}"
-                for s in "${pass_arguments[@]}"
-                do
-                    _line+=" "
-                    _line+=$s
-                done
-            fi
-            _lines+=("$_line")
-        done
+        writeLinesAddTunnel
+        host=localhost
+        port=${local_ports[0]}
     fi
-    # Create and fill template.
-    mkdir -p $HOME/.cache/rcm
-    _file=$HOME/.cache/rcm/ssh
-    echo "#!/bin/bash" > $_file
-    _order=$_last_index # Countdown order.
-    _log=
-    for (( i=0; i < ${#_lines[@]} ; i++ )); do
-        _log='echo -e "\e[93m'
-        if [[ ! $_order == 0 ]];then
-            _log+='Create tunnel on '
-        else
-            _log+='SSH connect to '
-        fi
-        if [[ ! ${users[$_order]} == "---" ]];then
-            _log+="${users[$_order]}@"
-        fi
-        _log+="${hosts[$_order]}"
-        if [[ ! ${ports[$_order]} == 22 ]];then
-            line+=":${ports[$_order]}"
-        fi
-        _log+='.'
-        _log+='\e[39m"'
-        if [[ $verbose == 1 ]];then
-            echo $_log >> $_file
-        fi
-        echo ${_lines[$i]} >> $_file
-        let _order--
+    log='echo -e "\e[93m'
+    log+='SSH connect to '
+    line='ssh '
+    if [[ ! ${users[0]} == "---" ]];then
+        log+="${users[0]}@"
+        line+="${users[0]}@"
+    fi
+    log+="${hosts[0]}"
+    line+="$host"
+    line+=" -p $port"
+    for string in "${pass_arguments[@]}"
+    do
+        line+=" "
+        line+=$string
     done
-    _is_last=1 # Just flag for first index of $_lines.
-    _last_index=$(( ${#_lines[@]} - 1 )) # Last index of $_lines.
-    _order=0
-    _log=
-    for (( i=$_last_index; i >= 0 ; i-- )); do
-        if [[ $_is_last == 1 ]];then
-            _is_last=0
-            let _order++
-            continue
-        fi
-        _log='echo -e "\e[93m'
-        _log+='Destroy tunnel on '
-        if [[ ! ${users[$_order]} == "---" ]];then
-            _log+="${users[$_order]}@"
-        fi
-        _log+="${hosts[$_order]}"
-        if [[ ! ${ports[$_order]} == 22 ]];then
-            _log+=":${ports[$_order]}"
-        fi
-        _log+='.'
-        _log+='\e[39m"'
-        if [[ $verbose == 1 ]];then
-            echo $_log >> $_file
-        fi
-        echo "kill \$(ps aux | grep \""${_lines[$i]}"\" | grep -v grep | awk '{print \$2}')" >> $_file
-        let _order++
-    done
+    log+='.\e[39m"'
+    if [[ $verbose == 1 ]];then
+        lines+=("$log")
+    fi
+    lines+=("$line")
+
     # Execute.
-    executeTemplate $_file
+    executeTemplate
 }
 
 # Fungsi untuk command send-key.
 sendKeyCommand () {
-    echo
+    local host port log line _log _line
+    local string ssh
+    host=${hosts[0]}
+    port=${ports[0]}
+    if [[ ${#hosts[@]} > 1 ]];then
+        writeLinesAddTunnel
+        host=localhost
+        port=${local_ports[0]}
+    fi
+    _log=
+    _line='ssh '
+     if [[ ! ${users[0]} == "---" ]];then
+        _log+="${users[0]}@"
+        _line+="${users[0]}@"
+    fi
+    _log+="${hosts[0]}"
+    _line+="$host"
+     if [[ ! ${ports[0]} == 22 ]];then
+        _log+=":${ports[0]}"
+    fi
+    _line+=" -p $port "
+    # echo $_log
+    # echo $_line
+    writeLinesVerbose 'echo -e "\e[93mTest SSH connect to '${_log}' using public key.\e[39m"'
+    line="if [[ ! \$(${_line} -o PreferredAuthentications=publickey -o PasswordAuthentication=no 'echo 1' 2>/dev/null) == 1 ]];then"
+    lines+=("$line")
+    # pe er disini
+    writeLinesVerbose '    echo -e "\e[93mSSH connect using public key is failed. It means sending public key is necessary.\e[39m"'
+    writeLinesVerbose '    echo -e "\e[93mYou need input password twice to sending public key.\e[39m"'
+    writeLinesVerbose '    echo -e "\e[93mSSH connect to make sure ~/.ssh/authorized_keys on '${_log}' exits.\e[39m"'
+    line="    ${_line}"
+    line+="'mkdir -p .ssh && chmod 700 .ssh && touch .ssh/authorized_keys && chmod 640 .ssh/authorized_keys'"
+    lines+=("$line")
+    writeLinesVerbose '    echo -e "\e[93mSSH connect again to sending public key to '${_log}'.\e[39m"'
+    line="    ${_line}"
+    # line+="'mkdir -p .ssh && chmod 700 .ssh && touch .ssh/authorized_keys && chmod 640 .ssh/authorized_keys'"
+    line="    cat ~/.ssh/id_rsa.pub | ${_line} 'cat >> .ssh/authorized_keys'"
+    lines+=("$line")
+    writeLinesVerbose '    echo -e "\e[93mRetest SSH connect to '${_log}' using public key.\e[39m"'
+    writeLinesVerbose "    if [[ \$(${_line} -o PreferredAuthentications=publickey -o PasswordAuthentication=no 'echo 1' 2>/dev/null) == 1 ]];then"
+    writeLinesVerbose '        echo -e "\e[92mSuccess.\e[39m"'
+    writeLinesVerbose '    else'
+    writeLinesVerbose '        echo -e "\e[91mFailed.\e[39m"'
+    writeLinesVerbose '    fi'
+    writeLinesVerbose 'else'
+    writeLinesVerbose '    echo -e "\e[93mSSH connect using public key is success. It means sending public key is not necessary.\e[39m"'
+    line="fi"
+    lines+=("$line")
+
+    # Execute.
+    executeTemplate
 }
-
-
 
 # Jika dari terminal. Contoh: `rcm ssh user@localhost`.
 if [ -t 0 ]; then
-    # echo Process Reguler via terminal.
+    # Process Reguler via terminal.
     # Jika tidak ada argument.
     if [[ $1 == "" ]];then
         clear
@@ -507,7 +570,7 @@ if [ -t 0 ]; then
 # Jika dari standard input. Contoh: `echo ssh user@localhost | rcm`.
 else
     set -- ${@:-$(</dev/stdin)}
-    # echo Process Standard Input.
+    # Process Standard Input.
 fi
 
 while [[ $# -gt 0 ]]
@@ -522,3 +585,5 @@ do
 done
 set -- "${arguments[@]}" # restore positional parameters
 execute
+
+# getLocalPortBasedOnHost localhost
