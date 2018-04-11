@@ -6,13 +6,14 @@
 # - temporary variable diawali dengan _underscore.
 # - function is camelCase.
 
-linesPre=()
+lines_pre=()
 lines=()
-linesPost=()
+lines_post=()
 
 # Default value.
 verbose=1
 interactive=0
+through=1
 RCM_ROOT=$HOME/.config/rcm
 RCM_DIR_PORTS=$RCM_ROOT/ports
 RCM_EXE=$RCM_ROOT/exe
@@ -37,7 +38,7 @@ arguments=()
 # pass_arguments=(empat lima)
 pass_arguments=()
 
-# *destination* adalah string yang bernilai server tujuan dan (jika ada)
+# *destination* adalah string dengan value adalah server tujuan dan (jika ada)
 # server-server lain yang menjadi batu loncatan (tunnel). Pola penamaannya
 # adalah [$user@]$host[:$port] [via ...]
 # Contoh:
@@ -48,21 +49,32 @@ pass_arguments=()
 # Variable ini akan diisi oleh fungsi execute.
 destination=
 
-# *hosts*, *ports*, dan *users* adalah array yang merupakan parse info dari
+# Variable array dibawah ini merupakan parse info dari
 # *destination*. Contoh, jika:
 # ```
 # destination=user@virtualmachine via foo@office.lan via proxy@company.com:2222
 # ```
 # maka,
 # ```
-# hosts=(virtualmachine office.lan company.com)
-# ports=(22 22 2222)
-# users=(user foo proxy)
+# $destinations=(proxy@company.com:2222 foo@office.lan user@virtualmachine)
+# $destinations_actual=(proxy@company.com foo@localhost user@localhost)
+# $hosts=(company.com office.lan virtualmachine)
+# $users=(proxy foo user)
+# $ports=(2222 22 22)
+# $hosts_actual=(company.com localhost localhost)
+# $ports_actual=(2222 50011 50012)
+# $tunnels=(50011:office.lan:22 50012:virtualmachine:22)
 # ```
-# Variable ini akan diisi oleh fungsi parseDestination.
+# Variable ini akan diisi oleh fungsi parseDestination().
+# local port akan diisi oleh fungsi getLocalPortBasedOnHost().
+destinations=()
+destinations_actual=()
 hosts=()
 ports=()
 users=()
+hosts_actual=()
+ports_actual=()
+tunnels=()
 
 # *local_ports* merupakan array yang menjadi local port forwarding untuk
 # kebutuhan tunneling berdasarkan informasi pada variable $destination.
@@ -120,18 +132,21 @@ isOdd () {
     return 1
 }
 
+# Fungsi untuk mengecek bahwa mesin saat ini adalah Cygwin.
+isCygwin () {
+    if [[ $(uname | cut -c1-6) == "CYGWIN" ]];then
+        return 0
+    fi
+    return 1
+}
+
 # Fungsi untuk mengeksekusi template.
 executeTemplate() {
-    local file=$1
-    local normal="$(tput sgr0)"
-    local red="$(tput setaf 1)"
-    local yellow="$(tput setaf 3)"
-    local cyan="$(tput setaf 6)"
     local execute=1
     local string
     local compileLines
     compileLines=()
-    for string in "${linesPre[@]}"
+    for string in "${lines_pre[@]}"
     do
         compileLines+=("$string")
     done
@@ -139,7 +154,7 @@ executeTemplate() {
     do
         compileLines+=("$string")
     done
-    for string in "${linesPost[@]}"
+    for string in "${lines_post[@]}"
     do
         compileLines+=("$string")
     done
@@ -167,10 +182,11 @@ executeTemplate() {
         esac
     fi
     if [[ $execute == 1 ]];then
+        mkdir -p $RCM_ROOT
         echo '#!/bin/bash' > $RCM_EXE
         for string in "${compileLines[@]}"
         do
-            echo $string >> $RCM_EXE
+            echo "$string" >> $RCM_EXE
         done
         chmod u+x $RCM_EXE
         /bin/bash $RCM_EXE
@@ -256,13 +272,16 @@ execute() {
         fi
     done
 
-    while getopts ":iq" opt ${options[@]}; do
+    while getopts ":iql" opt ${options[@]}; do
       case $opt in
         i)
           interactive=1
           ;;
         q)
           verbose=0
+          ;;
+        l)
+          through=0
           ;;
         \?)
           echo "Invalid option: -$OPTARG" >&2
@@ -330,15 +349,24 @@ execute() {
 # Fungsi untuk memparse variable $destination untuk nanti mem-populate variable
 # terkait.
 parseDestination() {
+    local h i o
+    local last_index_destinations
+    local flag
+    local _host _user _port _local_port _tunnel _destination
+
     # Ubah string destination menjadi array.
     _destination=($destination)
-    for (( i=0; i < ${#_destination[@]} ; i++ )); do
-        _order=$(( $i + 1 ))
-        if isEven $_order;then
+    flag=0
+    last_index_destination=$(( ${#_destination[@]} - 1 ))
+    for (( i=$last_index_destination; i >= 0 ; i-- )); do
+        j=$(( $i + 1 ))
+        if isOdd $i;then
             continue
         fi
+        destinations+=("${_destination[$i]}")
         _host=${_destination[$i]}
         _user=$(echo $_host | grep -E -o '^[^@]+@')
+        _destination_actual=$_user
         if [[ $_user == "" ]];then
             _user=---
         else
@@ -355,12 +383,24 @@ parseDestination() {
         hosts+=("$_host")
         users+=("$_user")
         ports+=("$_port")
-        if [[ ! $i == $((${#_destination[@]} - 1)) ]];then
-            # host selain yang terakhir pada argument, maka buat local portnya.
+        if [[ $flag == 0 ]];then
+            flag=1
+            host_actual=$_host
+            hosts_actual+=("$_host")
+            ports_actual+=("$_port")
+        else
+            host_actual=localhost
+            hosts_actual+=("localhost")
             _local_port=$(getLocalPortBasedOnHost $_host)
             local_ports+=($_local_port)
+            ports_actual+=("$_local_port")
+            _tunnel="${_local_port}:${_host}:${_port}"
+            tunnels+=("$_tunnel")
         fi
+        _destination_actual+="$host_actual"
+        destinations_actual+=("${_destination_actual}")
     done
+    # varDump
 }
 
 # Fungsi untuk memberikan local port start from port 50000 berdasarkan
@@ -399,165 +439,239 @@ getLocalPortBasedOnHost() {
     echo $port
 }
 
-# Fungsi untuk mempersiapkan code untuk generate tunnel dan mengisinya pada
-# variable $linesPre, atau $linesPost.
-writeLinesAddTunnel() {
-    local h i j o
-    local flag
-    local line lines last_index_hosts last_index_lines log
-    lines=()
-    flag=1 # Just flag for last index of $hosts.
-    last_index_hosts=$(( ${#hosts[@]} - 1 )) # Last index of $hosts.
-    for (( i=$last_index_hosts; i > 0 ; i-- )); do
-        h=$(( $i - 1 ))
-        log='echo -e "\e[93m'
-        line="ssh -fN "
-        log+='Create tunnel on '
-        if [[ ! ${users[$i]} == "---" ]];then
-            line+="${users[$i]}@"
-            log+="${users[$i]}@"
-        fi
-        log+="${hosts[$i]}"
-        if [[ ! ${ports[$i]} == 22 ]];then
-            log+=":${ports[$i]}"
-        fi
-        if [[ $flag == 1 ]];then
-            line+="${hosts[$i]}"
-            if [[ ! ${ports[$i]} == 22 ]];then
-                line+=" -p ${ports[$i]}"
-            fi
-            flag=0
-        else
-            line+="localhost"
-            line+=" -p ${local_ports[$i]}"
-        fi
-        line+=" -L ${local_ports[$h]}:${hosts[$h]}:${ports[$h]}"
-        log+='.\e[39m"'
-        if [[ $verbose == 1 ]];then
-            linesPre+=("$log")
-        fi
-        linesPre+=("$line")
-        lines+=("$line")
-    done
-    last_index_lines=$(( ${#lines[@]} - 1 )) # Last index of $lines.
-    o=$last_index_lines
-    for (( i=1; i <= $last_index_hosts ; i++ )); do
-        log=
-        log='echo -e "\e[93m'
-        log+='Destroy tunnel on '
-        if [[ ! ${users[$i]} == "---" ]];then
-            log+="${users[$i]}@"
-        fi
-        log+="${hosts[$i]}"
-        if [[ ! ${ports[$i]} == 22 ]];then
-            log+=":${ports[$i]}"
-        fi
-        log+='.\e[39m"'
-        if [[ $verbose == 1 ]];then
-            linesPost+=("$log")
-        fi
-        line="kill \$(ps aux | grep \""${lines[$o]}"\" | grep -v grep | awk '{print \$2}')"
-        linesPost+=("$line")
-        let o--
-    done
+# Fungsi untuk menambah baris fungsi getPidCygwin pada variable $lines_pre
+writeLinesAddGetPidCygwin() {
+    lines_pre+=("getPidCygwin() {")
+    lines_pre+=("    local pid command ifs")
+    lines_pre+=("    ifs=\$IFS")
+    lines_pre+=("    ps -s | grep ssh | awk '{print \$1}' | while IFS= read -r pid; do\\")
+    lines_pre+=("        command=\$(cat /proc/\${pid}/cmdline | tr '\0' ' ')")
+    lines_pre+=("        command=\$(echo \"\$command\" | sed 's/\ \$//')")
+    lines_pre+=("        if [[ \"\$command\" == \"\$1\" ]];then")
+    lines_pre+=("            echo \$pid")
+    lines_pre+=("            break")
+    lines_pre+=("        fi")
+    lines_pre+=("    done")
+    lines_pre+=("    IFS=\$ifs")
+    lines_pre+=("}")
 }
 
+# Fungsi untuk menulis pada variable $lines hanya jika verbose aktif.
 writeLinesVerbose() {
     if [[ $verbose == 1 ]];then
         lines+=("$1")
     fi
 }
-# Fungsi untuk command ssh.
-sshCommand () {
-    local host port log line
-    local string
-    host=${hosts[0]}
-    port=${ports[0]}
-    if [[ ${#hosts[@]} > 1 ]];then
-        writeLinesAddTunnel
-        host=localhost
-        port=${local_ports[0]}
-    fi
-    log='echo -e "\e[93m'
-    log+='SSH connect to '
-    line='ssh '
-    if [[ ! ${users[0]} == "---" ]];then
-        log+="${users[0]}@"
-        line+="${users[0]}@"
-    fi
-    log+="${hosts[0]}"
-    line+="$host"
-    line+=" -p $port"
-    for string in "${pass_arguments[@]}"
-    do
-        line+=" "
-        line+=$string
-    done
-    log+='.\e[39m"'
-    if [[ $verbose == 1 ]];then
-        lines+=("$log")
-    fi
-    lines+=("$line")
 
-    # Execute.
-    executeTemplate
-}
-
-# Fungsi untuk command send-key.
-sendKeyCommand () {
-    local host port log line _log _line
-    local string ssh
-    host=${hosts[0]}
-    port=${ports[0]}
-    if [[ ${#hosts[@]} > 1 ]];then
-        writeLinesAddTunnel
-        host=localhost
-        port=${local_ports[0]}
+# Fungsi untuk menulis pada variable $lines terkait command send-key.
+writeLinesSendKey() {
+    i=$1
+    options=
+    if [[ ! ${ports_actual[$i]} == 22 ]];then
+        options+="-p ${ports_actual[$i]} "
     fi
-    _log=
-    _line='ssh '
-     if [[ ! ${users[0]} == "---" ]];then
-        _log+="${users[0]}@"
-        _line+="${users[0]}@"
-    fi
-    _log+="${hosts[0]}"
-    _line+="$host"
-     if [[ ! ${ports[0]} == 22 ]];then
-        _log+=":${ports[0]}"
-    fi
-    _line+=" -p $port "
-    # echo $_log
-    # echo $_line
-    writeLinesVerbose 'echo -e "\e[93mTest SSH connect to '${_log}' using public key.\e[39m"'
-    line="if [[ ! \$(${_line} -o PreferredAuthentications=publickey -o PasswordAuthentication=no 'echo 1' 2>/dev/null) == 1 ]];then"
-    lines+=("$line")
-    # pe er disini
-    writeLinesVerbose '    echo -e "\e[93mSSH connect using public key is failed. It means sending public key is necessary.\e[39m"'
+    options+="-o PreferredAuthentications=publickey -o PasswordAuthentication=no "
+    writeLinesVerbose 'echo -e "\e[93mTest SSH connect to '${destinations[$i]}' using key.\e[39m"'
+    lines+=("if [[ ! \$(ssh ${options}${destinations_actual[$i]} 'echo 1' 2>/dev/null) == 1 ]];then")
+    writeLinesVerbose '    echo -e "\e[93mSSH connect using key is failed. It means process continues.\e[39m"'
     writeLinesVerbose '    echo -e "\e[93mYou need input password twice to sending public key.\e[39m"'
-    writeLinesVerbose '    echo -e "\e[93mSSH connect to make sure ~/.ssh/authorized_keys on '${_log}' exits.\e[39m"'
-    line="    ${_line}"
-    line+="'mkdir -p .ssh && chmod 700 .ssh && touch .ssh/authorized_keys && chmod 640 .ssh/authorized_keys'"
-    lines+=("$line")
-    writeLinesVerbose '    echo -e "\e[93mSSH connect again to sending public key to '${_log}'.\e[39m"'
-    line="    ${_line}"
-    # line+="'mkdir -p .ssh && chmod 700 .ssh && touch .ssh/authorized_keys && chmod 640 .ssh/authorized_keys'"
-    line="    cat ~/.ssh/id_rsa.pub | ${_line} 'cat >> .ssh/authorized_keys'"
-    lines+=("$line")
-    writeLinesVerbose '    echo -e "\e[93mRetest SSH connect to '${_log}' using public key.\e[39m"'
-    writeLinesVerbose "    if [[ \$(${_line} -o PreferredAuthentications=publickey -o PasswordAuthentication=no 'echo 1' 2>/dev/null) == 1 ]];then"
+    writeLinesVerbose '    echo -e "\e[93mFirstly, SSH connect to make sure ~/.ssh/authorized_keys on '${destinations[$i]}' exits.\e[39m"'
+    options=
+    if [[ ! ${ports_actual[$i]} == 22 ]];then
+        options+="-p ${ports_actual[$i]} "
+    fi
+    line="ssh ${options}${destinations_actual[$i]}"
+    lines+=("    ${line} 'mkdir -p .ssh && chmod 700 .ssh && touch .ssh/authorized_keys && chmod 640 .ssh/authorized_keys'")
+    writeLinesVerbose '    echo -e "\e[93mSecondly, SSH connect again to sending public key to '${destinations[$i]}'.\e[39m"'
+    lines+=("    cat ~/.ssh/id_rsa.pub | ${line} 'cat >> .ssh/authorized_keys'")
+    writeLinesVerbose '    echo -e "\e[93mRetest SSH connect to '${destinations[$i]}' using key.\e[39m"'
+    options=
+    if [[ ! ${ports_actual[$i]} == 22 ]];then
+        options+="-p ${ports_actual[$i]} "
+    fi
+    options+="-o PreferredAuthentications=publickey -o PasswordAuthentication=no "
+    writeLinesVerbose "    if [[ ! \$(ssh ${options}${destinations_actual[$i]} 'echo 1' 2>/dev/null) == 1 ]];then"
     writeLinesVerbose '        echo -e "\e[92mSuccess.\e[39m"'
     writeLinesVerbose '    else'
     writeLinesVerbose '        echo -e "\e[91mFailed.\e[39m"'
     writeLinesVerbose '    fi'
     writeLinesVerbose 'else'
-    writeLinesVerbose '    echo -e "\e[93mSSH connect using public key is success. It means sending public key is not necessary.\e[39m"'
-    line="fi"
-    lines+=("$line")
+    writeLinesVerbose '    echo -e "\e[93mSSH connect using key is successful thus sending key is not necessary.\e[39m"'
+    lines+=("fi")
+}
 
-    # Execute.
+# Fungsi untuk command ssh.
+sshCommand () {
+    local options last_index_destinations _tunnels flag
+    last_index_destinations=$(( ${#destinations[@]} - 1 ))
+    for (( i=0; i <= $last_index_destinations ; i++ )); do
+        options=
+        if [[ ! ${tunnels[$i]} == "" ]];then
+            options+="-fN -L ${tunnels[$i]} "
+            writeLinesVerbose 'echo -e "\e[93m'"SSH Connect. Create tunnel on ${destinations[$i]}."'\e[39m"'
+        else
+            writeLinesVerbose 'echo -e "\e[93m'"SSH Connect to ${destinations[$i]}"'\e[39m"'
+        fi
+        if [[ ! ${ports_actual[$i]} == 22 ]];then
+            options+="-p ${ports_actual[$i]} "
+        fi
+        lines+=("ssh ${options}${destinations_actual[$i]}")
+        if [[ ! ${tunnels[$i]} == "" ]];then
+            _tunnels+=("ssh ${options}${destinations_actual[$i]}")
+        fi
+    done
+    last_index_tunnels=$(( ${#tunnels[@]} - 1 ))
+    flag=0
+    for (( i=$last_index_tunnels; i >= 0 ; i-- )); do
+        writeLinesVerbose 'echo -e "\e[93m'"Destroy tunnel on ${destinations[$i]}."'\e[39m"'
+        if isCygwin;then
+            flag=1
+            lines+=("kill \$(getPidCygwin \"${_tunnels[$i]}\")")
+        else
+            lines+=("kill \$(ps aux | grep \"${_tunnels[$i]}\" | grep -v grep | awk '{print \$2}')")
+        fi
+    done
+    if [[ $flag == 1 ]];then
+        writeLinesAddGetPidCygwin
+    fi
     executeTemplate
 }
 
+# Fungsi untuk command send-key.
+sendKeyCommand() {
+    local options last_index_destinations _tunnels flag
+    last_index_destinations=$(( ${#destinations[@]} - 1 ))
+    for (( i=0; i <= $last_index_destinations ; i++ )); do
+        if [[ ! ${tunnels[$i]} == "" ]];then
+            if [[ $through == "1" ]];then
+                writeLinesSendKey $i
+            fi
+            options=
+            options+="-fN -L ${tunnels[$i]} "
+            writeLinesVerbose 'echo -e "\e[93m'"SSH Connect. Create tunnel on ${destinations[$i]}."'\e[39m"'
+            if [[ ! ${ports_actual[$i]} == 22 ]];then
+                options+="-p ${ports_actual[$i]} "
+            fi
+            lines+=("ssh ${options}${destinations_actual[$i]}")
+            if [[ ! ${tunnels[$i]} == "" ]];then
+                _tunnels+=("ssh ${options}${destinations_actual[$i]}")
+            fi
+        else
+            writeLinesSendKey $i
+        fi
+    done
+    last_index_tunnels=$(( ${#tunnels[@]} - 1 ))
+    flag=0
+    for (( i=$last_index_tunnels; i >= 0 ; i-- )); do
+        writeLinesVerbose 'echo -e "\e[93m'"Destroy tunnel on ${destinations[$i]}."'\e[39m"'
+        if isCygwin;then
+            flag=1
+            lines+=("kill \$(getPidCygwin \"${_tunnels[$i]}\")")
+        else
+            lines+=("kill \$(ps aux | grep \"${_tunnels[$i]}\" | grep -v grep | awk '{print \$2}')")
+        fi
+    done
+    if [[ $flag == 1 ]];then
+        writeLinesAddGetPidCygwin
+    fi
+    executeTemplate
+}
+
+# Debug global variable.
+varDump() {
+    local normal="$(tput sgr0)"
+    local red="$(tput setaf 1)"
+    local yellow="$(tput setaf 3)"
+    local cyan="$(tput setaf 6)"
+
+    printf "${cyan}\$destinations${normal}"
+    printf "${red} = ( ${normal}"
+    for string in ${destinations[@]}
+    do
+        printf "\"${yellow}$string${normal}\" "
+    done
+    printf "${red})${normal}"
+    echo -e "\n"
+
+    printf "${cyan}\$destinations_actual${normal}"
+    printf "${red} = ( ${normal}"
+    for string in ${destinations_actual[@]}
+    do
+        printf "\"${yellow}$string${normal}\" "
+    done
+    printf "${red})${normal}"
+    echo -e "\n"
+
+    printf "${cyan}\$hosts${normal}"
+    printf "${red} = ( ${normal}"
+    for string in ${hosts[@]}
+    do
+        printf "\"${yellow}$string${normal}\" "
+    done
+    printf "${red})${normal}"
+    echo -e "\n"
+
+    printf "${cyan}\$users${normal}"
+    printf "${red} = ( ${normal}"
+    for string in ${users[@]}
+    do
+        printf "\"${yellow}$string${normal}\" "
+    done
+    printf "${red})${normal}"
+    echo -e "\n"
+
+    printf "${cyan}\$ports${normal}"
+    printf "${red} = ( ${normal}"
+    for string in ${ports[@]}
+    do
+        printf "\"${yellow}$string${normal}\" "
+    done
+    printf "${red})${normal}"
+    echo -e "\n"
+
+    printf "${cyan}\$hosts_actual${normal}"
+    printf "${red} = ( ${normal}"
+    for string in ${hosts_actual[@]}
+    do
+        printf "\"${yellow}$string${normal}\" "
+    done
+    printf "${red})${normal}"
+    echo -e "\n"
+
+    printf "${cyan}\$ports_actual${normal}"
+    printf "${red} = ( ${normal}"
+    for string in ${ports_actual[@]}
+    do
+        printf "\"${yellow}$string${normal}\" "
+    done
+    printf "${red})${normal}"
+    echo -e "\n"
+
+    printf "${cyan}\$tunnels${normal}"
+    printf "${red} = ( ${normal}"
+    for string in ${tunnels[@]}
+    do
+        printf "\"${yellow}$string${normal}\" "
+    done
+    printf "${red})${normal}"
+    echo -e "\n"
+
+    printf "${cyan}\$verbose${normal}"
+    printf "${red} = ${normal}"
+    printf "\"${yellow}$verbose${normal}\" "
+    echo -e "\n"
+
+    printf "${cyan}\$interactive${normal}"
+    printf "${red} = ${normal}"
+    printf "\"${yellow}$interactive${normal}\" "
+    echo -e "\n"
+
+    printf "${cyan}\$through${normal}"
+    printf "${red} = ${normal}"
+    printf "\"${yellow}$through${normal}\" "
+    echo -e "\n"
+
+}
 # Jika dari terminal. Contoh: `rcm ssh user@localhost`.
 if [ -t 0 ]; then
     # Process Reguler via terminal.
@@ -585,5 +699,3 @@ do
 done
 set -- "${arguments[@]}" # restore positional parameters
 execute
-
-# getLocalPortBasedOnHost localhost

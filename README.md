@@ -1,7 +1,7 @@
 Remote Connection Manager
 =========================
 
-RCM provide you a simple way to do activity on remote access specially to create 
+RCM provide you a simple way to do activity on remote access specially to create
 tunnelling (local port forwarding).
 
 ## Getting Started
@@ -35,24 +35,8 @@ ssh ijortengab@localhost -p 50000
 
 ## More example
 
-RCM is make it easy for you to connect SSHFS.
+RCM is make it easy for you to send public key to server.
 
 ```
-rcm sshfs ijortengab@ijortengab.id via proxy@vpn.company.com mount /home/roji
+rcm send-key ijortengab@ijortengab.id via user@gateway.com via proxy@vpn.company.com
 ```
-
-ssh -fN proxy@vpn.company.com -L 50000:ijortengab.id:22
-ssh ijortengab@localhost -p 50000
-
-```
-rcm rsync from /home/roji to ijortengab@ijortengab.id via proxy@vpn.company.com
-```
-
-```
-rcm rsync from /home/roji/public_html/ to ijortengab@ijortengab.id:public_html via proxy@vpn.company.com
-```
-
-```
-rcm rsync from /etc/nginx/ to ijortengab@ijortengab.id:/etc/nginx via proxy@vpn.company.com
-```
-
