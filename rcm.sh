@@ -491,9 +491,9 @@ writeLinesSendKey() {
     fi
     options+="-o PreferredAuthentications=publickey -o PasswordAuthentication=no "
     writeLinesVerbose "    if [[ ! \$(ssh ${options}${destinations_actual[$i]} 'echo 1' 2>/dev/null) == 1 ]];then"
-    writeLinesVerbose '        echo -e "\e[92mSuccess.\e[39m"'
-    writeLinesVerbose '    else'
     writeLinesVerbose '        echo -e "\e[91mFailed.\e[39m"'
+    writeLinesVerbose '    else'
+    writeLinesVerbose '        echo -e "\e[92mSuccess.\e[39m"'
     writeLinesVerbose '    fi'
     writeLinesVerbose 'else'
     writeLinesVerbose '    echo -e "\e[93mSSH connect using key is successful thus sending key is not necessary.\e[39m"'
@@ -575,6 +575,24 @@ sendKeyCommand() {
         writeLinesAddGetPidCygwin
     fi
     executeTemplate
+}
+
+# Fungsi untuk command rsync.
+rsyncCommand() {
+    local normal="$(tput sgr0)"
+    local red="$(tput setaf 1)"
+    local yellow="$(tput setaf 3)"
+    local cyan="$(tput setaf 6)"
+
+    printf "${cyan}\$arguments${normal}"
+    printf "${red} = ( ${normal}"
+    for string in ${arguments[@]}
+    do
+        printf "\"${yellow}$string${normal}\" "
+    done
+    printf "${red})${normal}"
+    echo -e "\n"
+
 }
 
 # Debug global variable.
@@ -672,6 +690,7 @@ varDump() {
     echo -e "\n"
 
 }
+
 # Jika dari terminal. Contoh: `rcm ssh user@localhost`.
 if [ -t 0 ]; then
     # Process Reguler via terminal.
