@@ -4,7 +4,33 @@ Remote Connection Manager
 RCM provide you a simple way to do activity on remote access specially to create
 tunnelling (local port forwarding).
 
-RCM work with generate bash script that you can manually review before execute.
+RCM works with generate bash script that you can manually review before execute.
+
+## Getting Started
+
+Before you know `rcm`.
+
+Login to ijortengab@office.lan via host proxy staff-it@company.com
+
+```
+ssh -fN -L 50011:office.lan:22 staff-it@company.com
+ssh -p 50011 ijortengab@localhost
+```
+
+After you know `rcm`.
+
+```
+rcm login ijortengab@office.lan via staff-it@company.com
+```
+
+And you can use unlimited tunnel use this format:
+
+```
+rcm login [USER@]HOST[:PORT] [via [USER@]HOST[:PORT]]...
+```
+
+RCM provide another solution: send command, send public key, synchronize
+directory, and every task that using tunnel (local port forwarding).
 
 ## Installation
 
@@ -25,8 +51,8 @@ Usage: rcm [OPTIONS] external_command (external_command's options and arguments)
   or   rcm [OPTIONS] internal_command [OPTIONS] [ARGUMENTS]
 
 Options
- -p, --interactive           Preview the generated code and ask to execute.
- -i, --interactive           Preview the generated code and ask to execute.
+ -p, --preview               Preview the generated code.
+ -i, --interactive           Preview the generated code and ask to do.
  -q, --quiet                 The generated code will not produce any output.
  -t, --tunnel=HOST           Create tunnel from host (may be more than one).
  -d, --destination=HOST      If tunnel option triggered, the destination must

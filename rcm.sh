@@ -25,7 +25,7 @@ preview=0
 through=1
 
 # Developer only. Flag untuk mengaktifkan fungsi varDump.
-debug=1
+debug=0
 
 # Lines untuk menjadi storage baris-baris generated code.
 lines_define=()
