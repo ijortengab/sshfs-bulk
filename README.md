@@ -6,13 +6,26 @@ tunnelling (local port forwarding).
 
 RCM work with generate bash script that you can manually review before execute.
 
+## Installation
+
+Download from Github.
+
+```
+wget -O rcm https://raw.githubusercontent.com/ijortengab/rcm/master/rcm.sh
+chmod u+x rcm
+```
+
+You can put anywhere in $PATH or make your own alias so you can execute with
+command `rcm`.
+
 ## How to use
 
 ```
-Usage: rcm [OPTIONS] command [COMMAND_OPTIONS]
-  or   rcm [OPTIONS] special_command [OPTIONS] [ARGUMENTS]
+Usage: rcm [OPTIONS] external_command (external_command's options and arguments)
+  or   rcm [OPTIONS] internal_command [OPTIONS] [ARGUMENTS]
 
 Options
+ -p, --interactive           Preview the generated code and ask to execute.
  -i, --interactive           Preview the generated code and ask to execute.
  -q, --quiet                 The generated code will not produce any output.
  -t, --tunnel=HOST           Create tunnel from host (may be more than one).
@@ -21,18 +34,24 @@ Options
                              localhost.
  -h, --help                  Show help and exit.
 
+There are available options specific per internal commands.
+Run 'rcm internal_command --help' for more options.
 ```
-Command:
-  You can use any command that work with remote host. We will create the
-  tunnel and replace remote host with localhost.
 
-  Command that officially support is: `ssh`, `rsync`, `sshfs`.
+External command:
 
-Special command:
-  `login`, `send-key`, `push`, `pull`, `manage`, `open-port`, `mount`.
+You can use any command that work with remote host. We will create the
+tunnel and replace remote host with localhost. External command that officially
+support is: `ssh`, `rsync`, `sshfs`.
 
-Run `rcm special_command --help` for more options.
-
+Internal command:
+  - `login`
+  - `send-key`
+  - `push`
+  - `pull`
+  - `manage`
+  - `open-port`
+  - `mount`
 
 ## SSH Example
 
