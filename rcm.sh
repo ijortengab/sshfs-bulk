@@ -23,119 +23,110 @@ verbose=1
 interactive=0
 preview=0
 through=1
+style=auto
 
 # Developer only. Flag untuk mengaktifkan fungsi varDump.
 debug=0
 
+# Informasi Global Variables.
+#
 # Lines untuk menjadi storage baris-baris generated code.
-lines_define=()
-lines_function=()
-lines_pre=()
-lines=()
-lines_post=()
-
-# $command_type terbagi menjadi dua: external dan internal.
-# External command adalah apapun command di Linux yang menggunakan remote host.
-# RCM didisain untuk memudahkan bekerja melalui tunnel, maka remote host yang
-# menjadi argument pada external command akan direplace menjadi localhost
-# setelah tunnel di-create.
-# Contoh external command yang menggunakan remote host adalah:
-# - ssh host
-# - rsync host
-# - sshfs host
-# - wget host
-# Internal_command adalah command internal yang dimiliki oleh rcm untuk tugas
-# dan fungsi tertentu yang sudah baku. Contoh: login, send-key.
-command_type=
-command=
-command_arguments=()
-command_full=
-
-# *mass_arguments* adalah array penampungan semua argument diluar command.
+#
+# lines_define=()
+# lines_function=()
+# lines_pre=()
+# lines=()
+# lines_post=()
+#
+#
+# $arguments adalah array penampungan terhadap argument. Flexible, value dari
+# variable ini dapat berubah-ubah.
+#
 # Contoh:
+#
 # ```
 # rcm -iq send-key -option --long-option satu dua ti\ ga
 # ```
+#
 # Dari contoh diatas, maka nilai dari variable ini sama dengan
-# mass_arguments=(satu dua "ti ga")
-mass_arguments=()
-
-# $destination merupakan variable penyimpanan dari option -d atau --destination.
-# $destination_sanitize merupakan nilai dari $destination yang telah dihilangkan
-# informasi :port. Contoh:
-# ```
-# $destination=ijortengab@systemix.id:8080
-# $destination_sanitize=ijortengab@systemix.id
-# ```
-# $destination_sanitize di-populate oleh validateDestination() dan digunakan
-# oleh fungsi executeCommand() untuk me-replace $command_full.
-destination=
-destination_sanitize=
-
-# $tunnels merupakan variable penyimpanan dari option -t atau --tunnel.
-# tunnels_command_* adalah command ssh untuk membuat/menutup tunnel beserta
-# informasi penjelasan.
-tunnels=()
-
+# arguments=("-iq" "send-key" "-option" "--long-opition" satu dua "ti ga")
+#
 # Variable $route adalah kumpulan dari host yang dilalui dimana element pertama
-# adalah tunnel pertama, element terakhir adalah destination.
+# adalah tunnel/jump pertama, element terakhir adalah destination.
 # Tiap element menggunakan format: [USER@]HOST[:PORT].
 # Variable lainnya dibangun perdasarkan $route.
+#
 # Contoh:
+#
 # ```
 # rcm -p login guest@virtualmachine.vm via ijortengab@office.lan:2223 via staff-it@company.com:80
 # ```
+#
 # maka,
 # $route = ( "staff-it@company.com:80" "ijortengab@office.lan:2223" "guest@virtualmachine.vm" )
-# $hosts = ( "company.com" "office.lan" "virtualmachine.vm" )
-# $users = ( "staff-it" "ijortengab" "guest" )
-# $ports = ( "80" "2223" "22" )
-# $hosts_actual = ( "company.com" "localhost" "localhost" )
-# $ports_actual = ( "80" "50011" "50020" )
-# $route_actual = ( "staff-it@company.com" "ijortengab@localhost" "guest@localhost" )
-# $tunnels_command_create = (
-#     "ssh -fN -L 50011:office.lan:2223 -p 80 staff-it@company.com"
-#     "ssh -fN -L 50020:virtualmachine.vm:22 -p 50011 ijortengab@localhost"
+# $route_hosts = ( "company.com" "office.lan" "virtualmachine.vm" )
+# $route_users = ( "staff-it" "ijortengab" "guest" )
+# $route_ports = ( "80" "2223" "22" )
+# $route_ssh_options = (
+#     " -p 80" " -p 2223 -J staff-it@company.com:80"
+#     " -J staff-it@company.com:80,ijortengab@office.lan:2223"
 # )
-# $tunnels_command_create_info = (
+# $route_ssh_mass_arguments = ( "staff-it@company.com" "ijortengab@office.lan" "guest@virtualmachine.vm" )
+# $route_tunnel_hosts = ( "company.com" "localhost" )
+# $route_tunnel_ports = ( "80" "50002" )
+# $route_ssh_tunnel_mass_arguments = ( "staff-it@company.com" "ijortengab@localhost" )
+# $route_ssh_tunnel_options = ( " -p 80" " -p 50002" )
+# $route_last_host = "localhost"
+# $route_last_user = "guest"
+# $route_last_port = "50003"
+# $route_last_ssh_options = " -p 50003"
+# $route_last_ssh_mass_arguments = "guest@localhost"
+# $ssh_tunnel_create_info = (
 #     "SSH Connect. Create tunnel on staff-it@company.com:80."
 #     "SSH Connect. Create tunnel on ijortengab@office.lan:2223."
 # )
-route=()
-route_actual=()
-hosts=()
-ports=()
-users=()
-hosts_actual=()
-ports_actual=()
-tunnels_command_create=()
-tunnels_command_create_info=()
-tunnels_command_destroy=()
-tunnels_command_destroy_info=()
-
+# $ssh_tunnel_create = (
+#     "ssh -p 80 -fN -L 50002:office.lan:2223 -o ServerAliveInterval=30 staff-it@company.com"
+#     "ssh -p 50002 -fN -L 50003:virtualmachine.vm:22 -o ServerAliveInterval=30 ijortengab@localhost"
+# )
+# $ssh_tunnel_destroy_info = (
+#     "Destroy tunnel on ijortengab@office.lan:2223."
+#     "Destroy tunnel on staff-it@company.com:80."
+# )
+# $ssh_tunnel_destroy = (
+#     "kill $(ps aux | grep "$ssh_tunnel_create[1]" | grep -v grep | awk '{print $2}')"
+#     "kill $(ps aux | grep "$ssh_tunnel_create[0]" | grep -v grep | awk '{print $2}')"
+# )
+#
 # *local_ports* merupakan array yang menjadi penyimpanan sementara sebagai
 # referensi local port forwarding untuk kebutuhan tunneling berdasarkan
 # informasi pada variable $destination dan $tunnels. Contoh, jika:
+#
 # ```
 # rcm login user@virtualmachine via foo@office.lan via proxy@company.com
 # ```
+#
 # Maka,
 # host company.com tidak perlu local port forwarding karena dia menjadi koneksi
 # langsung.
 # host virtualmachine akan diset local port forwarding misalnya 50000
 # host office.lan akan diset local port forwarding misalnya 50001
 # Sehingga hasil akhir menjadi:
+#
 # ```
 # local_ports=(50000 50001)
 # ```
+#
 # Variable ini akan diisi oleh fungsi getLocalPortBasedOnHost().
 # Penggunaan local port seperti pada command berikut:
+#
 # ```
 # ssh -fN proxy@company.com -L 50001:office.lan:22
 # ssh -fN foo@localhost -p 50001 -L 50000:virtualmachine:22
 # ssh user@localhost -p 50000
 # ```
-local_ports=()
+#
+# local_ports=()
 
 # Fungsi containsElement() seperti fungsi PHP in_array(). Berguna untuk mengecek
 # apakah sebuah value sudah ada didalam array.
@@ -213,16 +204,16 @@ populateTemplate() {
         echo "#!/bin/bash"
         for string in "${compileLines[@]}"
         do
-            if [[ "$string" =~ echo\ \-e\ \"\\e\[[0-9]+m ]];then
-                echo -n "$(echo "$string" | sed -n -E 's/\s*(echo\s-e\s"\\e\[[0-9]+m)(.*)(\\e\[[0-9]+m")/\1/p')"
-                echo -ne "\e[92m"
-                echo -n "$(echo "$string" | sed -n -E 's/\s*(echo\s-e\s"\\e\[[0-9]+m)(.*)(\\e\[[0-9]+m")/\2/p')"
-                echo -ne "\e[32m"
-                echo -n "$(echo "$string" | sed -n -E 's/\s*(echo\s-e\s"\\e\[[0-9]+m)(.*)(\\e\[[0-9]+m")/\3/p')"
-                echo
-            else
+            # if [[ "$string" =~ echo\ \-e\ \"\\e\[[0-9]+m ]];then
+                # echo -n "$(echo ${string} | sed -n -E 's/^(\s*)(echo\s-e\s"\\e\[[0-9]+m)(.*)(\\e\[[0-9]+m")/\2/p')"
+                # echo -ne "\e[92m"
+                # echo -n "$(echo $string | sed -n -E 's/^(\s*)(echo\s-e\s"\\e\[[0-9]+m)(.*)(\\e\[[0-9]+m")/\3/p')"
+                # echo -ne "\e[32m"
+                # echo -n "$(echo $string | sed -n -E 's/^(\s*)(echo\s-e\s"\\e\[[0-9]+m)(.*)(\\e\[[0-9]+m")/\4/p')"
+                # echo
+            # else
                 echo "$string"
-            fi
+            # fi
         done
         echo -ne "\e[39m"
     fi
@@ -293,27 +284,16 @@ done
 # Fungsi untuk mengeksekusi rcm jika diberi argument.
 execute() {
     varDump 'execute()'
-    readOptions
     case $command in
         login)
-            validateInternalCommandOptions
-            validateInternalCommandMassArgument
-            populateRoute mass-arguments
-            parseRoutePopulateArrays
+            validateArgumentsPreparePopulateRoute
+            populateRoute
             executeLogin
             ;;
         send-key)
-            validateInternalCommandOptions
-            validateInternalCommandMassArgument
-            populateRoute mass-arguments
-            parseRoutePopulateArrays
+            validateArgumentsPreparePopulateRoute
+            populateRoute
             executeSendKey
-            ;;
-        ssh)
-            validateDestination
-            populateRoute tunnels-destination
-            parseRoutePopulateArrays
-            executeCommand
     esac
 }
 
@@ -359,13 +339,13 @@ getLocalPortBasedOnHost() {
 # Pada kondisi khusus seperti executeSendKey(), maka body dalam fungsi ini
 # digunakan untuk kemudian dimanipulasi sesuai kebutuhan.
 writeLinesAddTunnels() {
-    for (( i=0; i < ${#tunnels_command_create[@]} ; i++ )); do
-        writeLinesVerbose 'echo -e "\e[93m'"${tunnels_command_create_info[$i]}"'\e[39m"' pre
-        lines_pre+=("${tunnels_command_create[$i]}")
+    for (( i=0; i < ${#ssh_tunnel_create[@]} ; i++ )); do
+        writeLinesVerbose 'echo -e "\e[93m'"${ssh_tunnel_create_info[$i]}"'\e[39m"' pre
+        lines_pre+=("${ssh_tunnel_create[$i]}")
     done
-    for (( i=0; i < ${#tunnels_command_destroy[@]} ; i++ )); do
-        writeLinesVerbose 'echo -e "\e[93m'"${tunnels_command_destroy_info[$i]}"'\e[39m"' post
-        lines_post+=("${tunnels_command_destroy[$i]}")
+    for (( i=0; i < ${#ssh_tunnel_destroy[@]} ; i++ )); do
+        writeLinesVerbose 'echo -e "\e[93m'"${ssh_tunnel_destroy_info[$i]}"'\e[39m"' post
+        lines_post+=("${ssh_tunnel_destroy[$i]}")
     done
     if isCygwin;then
         writeLinesAddGetPidCygwin
@@ -402,332 +382,399 @@ writeLinesVerbose() {
 
 # Fungsi untuk menulis pada variable $lines terkait command send-key.
 writeLinesSendKey() {
-    i=$1
-    options=
-    if [[ ! ${ports_actual[$i]} == 22 ]];then
-        options+="-p ${ports_actual[$i]} "
-    fi
-    options+="-o PreferredAuthentications=publickey -o PasswordAuthentication=no "
+    local _options options
+    _options=$ssh_options
+    options=$_options
+    options+=" -o PreferredAuthentications=publickey -o PasswordAuthentication=no"
     writeLinesVerbose 'echo -e "\e[93mTest SSH connect to '${route[$i]}' using key.\e[39m"'
-    lines+=("if [[ ! \$(ssh ${options}${route_actual[$i]} 'echo 1' 2>/dev/null) == 1 ]];then")
-    writeLinesVerbose '    echo -e "\e[93mSSH connect using key is failed. It means process continues.\e[39m"'
-    writeLinesVerbose '    echo -e "\e[93mYou need input password twice to sending public key.\e[39m"'
+    lines+=("if [[ ! \$(ssh${options} ${mass_arguments} 'echo 1' 2>/dev/null) == 1 ]];then")
+    writeLinesVerbose '    echo -e "\e[93m- SSH connect using key is failed. It means process continues.\e[39m"'
+    writeLinesVerbose '    echo -e "\e[93m- You need input password twice to sending public key.\e[39m"'
     writeLinesVerbose '    echo -e "\e[93mFirstly, SSH connect to make sure ~/.ssh/authorized_keys on '${route[$i]}' exits.\e[39m"'
-    options=
-    if [[ ! ${ports_actual[$i]} == 22 ]];then
-        options+="-p ${ports_actual[$i]} "
-    fi
-    line="ssh ${options}${route_actual[$i]}"
+    options=$_options
+    line="ssh${options} ${mass_arguments}"
     lines+=("    ${line} 'mkdir -p .ssh && chmod 700 .ssh && touch .ssh/authorized_keys && chmod 640 .ssh/authorized_keys'")
     writeLinesVerbose '    echo -e "\e[93mSecondly, SSH connect again to sending public key to '${route[$i]}'.\e[39m"'
     lines+=("    cat ~/.ssh/id_rsa.pub | ${line} 'cat >> .ssh/authorized_keys'")
     writeLinesVerbose '    echo -e "\e[93mRetest SSH connect to '${route[$i]}' using key.\e[39m"'
-    options=
-    if [[ ! ${ports_actual[$i]} == 22 ]];then
-        options+="-p ${ports_actual[$i]} "
-    fi
-    options+="-o PreferredAuthentications=publickey -o PasswordAuthentication=no "
-    writeLinesVerbose "    if [[ ! \$(ssh ${options}${route_actual[$i]} 'echo 1' 2>/dev/null) == 1 ]];then"
-    writeLinesVerbose '        echo -e "\e[91mFailed.\e[39m"'
+    options=$_options
+    options+=" -o PreferredAuthentications=publickey -o PasswordAuthentication=no"
+    writeLinesVerbose "    if [[ ! \$(ssh${options} ${mass_arguments} 'echo 1' 2>/dev/null) == 1 ]];then"
+    writeLinesVerbose '        echo -e "\e[93m- \e[91mFailed.\e[39m"'
     writeLinesVerbose '    else'
-    writeLinesVerbose '        echo -e "\e[92mSuccess.\e[39m"'
+    writeLinesVerbose '        echo -e "\e[93m- \e[92mSuccess.\e[39m"'
     writeLinesVerbose '    fi'
     writeLinesVerbose 'else'
-    writeLinesVerbose '    echo -e "\e[93mSSH connect using key is successful thus sending key is not necessary.\e[39m"'
+    writeLinesVerbose '    echo -e "\e[93m- SSH connect using key is successful thus sending key is not necessary.\e[39m"'
     lines+=("fi")
-}
-
-# Fungsi untuk mendapatkan informasi port dari command line ssh.
-# Posisi argument port pada command ssh bisa sebagai berikut
-# -p 23
-# -p23
-# -vvvp 23
-# -vvvp23
-# Contoh: `ssh ijortengab@host`, maka port=22.
-# Contoh: `ssh -p 2223 ijortengab@host`, maka port=2223.
-# Contoh: `ssh -v4p2221 ijortengab@host`, maka port=2221.
-getPortFromSshCommand() {
-    local port
-    port=$(echo "$1" | grep -o -P '\s\-p\s*\K([0-9]+)\s')
-    if [[ $port == "" ]];then
-        port=$(echo "$1" | grep -o -P '\s\-[0-9a-zA-Z]+p\s*\K([0-9]+)\s')
-    fi
-    if [[ ! $port == "" ]];then
-        echo $port
-    else
-        echo 22
-    fi
 }
 
 # Fungsi untuk membaca variable $options dan kemudian mengeset variable yang
 # terkait.
-readOptions() {
-    varDump 'readOptions() before'
-    varDump options
-    # Reset builtin function getopts.
-    OPTIND=1
-    # Options yang berlaku untuk semua.
-    while getopts ":piq" opt ${options[@]}; do
-        case $opt in
-            p) preview=1 ;;
-            i) interactive=1 ;;
-            q) verbose=0 ;;
+setOptions() {
+    local which residual
+    which=$1
+    loop=$2
+    # Jadikan variable berdasarkan array.
+    # set -- ${arguments[@]}
+    # set -- ${options[@]}
+    eval set -- \$\{$which\[\@\]\}
+    eval $which=\(\)
+    # Set options.
+    residual=()
+    while [[ $# -gt 0 ]]; do
+        varDump '<$1>'"$1"
+        case $1 in
+        --preview|-p) preview=1 ; shift;;
+        --interactive|-i) interactive=1 ; shift;;
+        --quiet|-q) verbose=0 ; shift;;
+        --last|-l) through=0 ; shift;;
+        --style=*) style="$(echo $1 | cut -c9-)"; shift ;;
+        -s) style=$2; shift 2 ;;
+        *)
+            if [[ $1 =~ ^- ]];then
+                # Reset builtin function getopts.
+                OPTIND=1
+                while getopts ":piqls:" opt; do
+                    varDump '<$opt>'"$opt"
+                    case $opt in
+                        p) preview=1 ;;
+                        i) interactive=1 ;;
+                        q) verbose=0 ;;
+                        l) through=0 ;;
+                        s) style="$OPTARG" ;;
+                        # \?) echo "Invalid option: -$OPTARG" >&2 ;;
+                        :) echo "Option -$OPTARG requires an argument." >&2 ;;
+                    esac
+                done
+                shift $((OPTIND-1))
+            else
+                # Mass arguments dikembalikan ke variable semula.
+                if [[ $loop == once ]];then
+                    while [[ $# -gt 0 ]]; do
+                        eval $which\+\=\(\"$1\"\)
+                        shift
+                    done
+                    break
+                else
+                    eval $which\+\=\(\"$1\"\)
+                    shift
+                fi
+            fi
         esac
     done
-    # Reset builtin function getopts.
-    OPTIND=1
-    # Options yang berlaku spesifik per command.
-    case $command in
-        send-key)
-            while getopts ":l" opt ${options[@]}; do
-                case $opt in
-                    l) through=0 ;;
-                esac
-            done
-            ;;
+}
+
+# Fungsi untuk memvalidasi variable $options.
+validateOptions() {
+    # Variable $style yang dibolehkan adalah 'jump', 'tunnel', atau 'auto'.
+    varDump style
+    right=0
+    case $style in
+        jump) right=1 ;;
+        tunnel) right=1 ;;
+        auto)
+            right=1
+            vercomp `getCurrentSshProgramVersion` 7.3
+            if [[ $? -lt 2 ]];then
+                # ssh options -J available
+                style=jump
+            else
+                # ssh options -J not available
+                style=tunnel
+            fi
     esac
-    varDump 'readOptions() after'
-    varDump interactive verbose through preview
+    if [[ $right == 0 ]]; then
+        error "Argument tidak dikenali pada opsi style: '${style}'."
+    fi
+    varDump style
 }
 
 # Fungsi untuk mem-populate variable $route.
 populateRoute() {
-    case $1 in
-        mass-arguments)
-            last_index=$(( ${#mass_arguments[@]} - 1 ))
-            for (( i=$last_index; i >= 0 ; i-- )); do
-                if isOdd $i;then
-                    continue
-                fi
-                route+=("${mass_arguments[$i]}")
-            done
-            ;;
-        tunnels-destination)
-            last_index=$(( ${#tunnels[@]} - 1 ))
-            for (( i=$last_index; i >= 0 ; i-- )); do
-                route+=("${tunnels[$i]}")
-            done
-            route+=("$destination")
-            ;;
-    esac
+    varDump 'populateRoute()'
+    last_index=$(( ${#arguments[@]} - 1 ))
+    for (( i=$last_index; i >= 0 ; i-- )); do
+        if isOdd $i;then
+            continue
+        fi
+        route+=("${arguments[$i]}")
+    done
+    varDump route
 }
 
-# Fungsi untuk mengisi berbagai global variable berdasarkan variable $route.
-parseRoutePopulateArrays() {
-    flag=0
+# Expand variable dengan prefix route_ terkait dengan $style tunnel.
+expandRoutePrepareTunnel() {
+    local i cmd first last
+    local last_index options mass_arguments
+    local route_host route_user route_port
+    varDump 'expandRoutePrepareTunnel()'
+    first=0
+    last=$(( ${#route[@]} - 1 ))
     for (( i=0; i < ${#route[@]} ; i++ )); do
-        j=$(( $i + 1 ))
-        _host=${route[$i]}
-        _user=$(echo $_host | grep -E -o '^[^@]+@')
-        _route_actual=$_user
-        if [[ $_user == "" ]];then
-            _user=---
+        cmd=
+        route_host=${route[$i]}
+        route_user=$(echo $route_host | grep -E -o '^[^@]+@')
+        cmd+=$route_user
+        if [[ $route_user == "" ]];then
+            route_user=@
         else
-            _host=$(echo $_host | sed 's/^'$_user'//' )
-            _user=$(echo $_user | grep -E -o '[^@]+')
+            route_host=$(echo $route_host | sed 's/^'$route_user'//' )
+            route_user=$(echo $route_user | grep -E -o '[^@]+')
         fi
-        _port=$(echo $_host | grep -E -o ':[0-9]+$')
-        if [[ $_port == "" ]];then
-            _port=22
+        route_port=$(echo $route_host | grep -E -o ':[0-9]+$')
+        if [[ $route_port == "" ]];then
+            route_port=22
         else
-            _host=$(echo $_host | sed 's/'$_port'$//' )
-            _port=$(echo $_port | grep -E -o '[0-9]+')
+            route_host=$(echo $route_host | sed 's/'$route_port'$//' )
+            route_port=$(echo $route_port | grep -E -o '[0-9]+')
         fi
-        hosts+=("$_host")
-        users+=("$_user")
-        ports+=("$_port")
-        if [[ $flag == 0 ]];then
-            flag=1
-            host_actual=$_host
-            hosts_actual+=("$_host")
-            ports_actual+=("$_port")
+        route_hosts+=("$route_host")
+        route_users+=("$route_user")
+        route_ports+=("$route_port")
+        if [[ $i == $first ]];then
+            route_tunnel_host=$route_host
+            route_tunnel_port=$route_port
         else
-            host_actual=localhost
-            hosts_actual+=("localhost")
-            _local_port=$(getLocalPortBasedOnHost $_host)
-            local_ports+=($_local_port)
-            ports_actual+=("$_local_port")
-            _tunnel="${_local_port}:${_host}:${_port}"
-            tunnels_actual+=("$_tunnel")
+            route_tunnel_host=localhost
+            route_tunnel_port=$(getLocalPortBasedOnHost $route_host)
+            local_ports+=($route_tunnel_port)
         fi
-        _route_actual+="$host_actual"
-        route_actual+=("${_route_actual}")
+        if [[ ! $i == $last ]];then
+            route_tunnel_hosts+=("$route_tunnel_host")
+            route_tunnel_ports+=("$route_tunnel_port")
+            cmd+=$route_tunnel_host
+            route_ssh_tunnel_mass_arguments+=("$cmd")
+            cmd=''
+            if [[ ! $route_tunnel_port == 22 ]];then
+                cmd+=" -p ${route_tunnel_port}${cmd}"
+            fi
+            route_ssh_tunnel_options+=("$cmd")
+        else
+            route_last_host="$route_tunnel_host"
+            route_last_user="$route_user"
+            route_last_port="$route_tunnel_port"
+        fi
     done
-
-    for (( i=0; i < ${#tunnels_actual[@]} ; i++ )); do
-        options=
-        options+="-fN -L ${tunnels_actual[$i]} "
-        tunnels_command_create_info+=("SSH Connect. Create tunnel on ${route[$i]}.")
-        if [[ ! ${ports_actual[$i]} == 22 ]];then
-            options+="-p ${ports_actual[$i]} "
-        fi
-        tunnels_command_create+=("ssh ${options}${route_actual[$i]}")
+    route_last_ssh_options=''
+    route_last_ssh_mass_arguments="${route_last_host}"
+    if [[ ! $route_last_user == "@" ]];then
+        route_last_ssh_mass_arguments="${route_last_user}@${route_last_host}"
+    fi
+    if [[ ! ${route_last_port} == 22 ]];then
+        route_last_ssh_options+=" -p ${route_last_port}"
+    fi
+    for (( i=0; i < ${#route_ssh_tunnel_mass_arguments[@]} ; i++ )); do
+        j=$(( $i + 1))
+        options=${route_ssh_tunnel_options[$i]}
+        mass_arguments=${route_ssh_tunnel_mass_arguments[$i]}
+        options+=" -fN -L ${local_ports[$i]}:${route_hosts[$j]}:${route_ports[$j]}"
+        options+=" -o ServerAliveInterval=30"
+        ssh_tunnel_create+=("ssh${options} ${mass_arguments}")
+        ssh_tunnel_create_info+=("SSH Connect. Create tunnel on ${route[$i]}.")
     done
-    z=$(( ${#tunnels_actual[@]} - 1 ))
-    for (( i=$z; i >= 0 ; i-- )); do
-        tunnels_command_destroy_info+=("Destroy tunnel on ${route[$i]}.")
+    last_index=$(( ${#route_ssh_tunnel_mass_arguments[@]} - 1 ))
+    for (( i=$last_index; i >= 0 ; i-- )); do
+        ssh_tunnel_destroy_info+=("Destroy tunnel on ${route[$i]}.")
         if isCygwin;then
-            tunnels_command_destroy+=("kill \$(getPidCygwin \"${tunnels_command_create[$i]}\")")
+            ssh_tunnel_destroy+=("kill \$(getPidCygwin \"${ssh_tunnel_create[$i]}\")")
         else
-            tunnels_command_destroy+=("kill \$(ps aux | grep \"${tunnels_command_create[$i]}\" | grep -v grep | awk '{print \$2}')")
+            ssh_tunnel_destroy+=("kill \$(ps aux | grep \"${ssh_tunnel_create[$i]}\" | grep -v grep | awk '{print \$2}')")
         fi
     done
-    varDump route hosts users ports hosts_actual ports_actual tunnels_actual
-    varDump route_actual
-    varDump tunnels_command_create tunnels_command_create_info
-    varDump tunnels_command_destroy tunnels_command_destroy_info
+    varDump local_ports
+    varDump route_hosts route_users route_ports
+    varDump route_tunnel_hosts route_tunnel_ports
+    varDump route_ssh_tunnel_mass_arguments route_ssh_tunnel_options
+    varDump route_last_host route_last_user route_last_port
+    varDump route_last_ssh_options route_last_ssh_mass_arguments
+    varDump ssh_tunnel_create_info ssh_tunnel_create
+    varDump ssh_tunnel_destroy_info ssh_tunnel_destroy
 }
 
-# Verifikasi khusus internal command.
-validateInternalCommandOptions() {
-    # Internal command tidak membutuhkan argument -t maupun argument -d yang
-    # mengisi array $tunnels.
-    if [[ ${#tunnels[@]} -gt 0 ]];then
-        error "Internal command tidak membutuhkan option -t maupun -d."
-    fi
+# Expand variable dengan prefix route_ terkait dengan $style jump.
+expandRoutePrepareJump() {
+    local i options mass_arguments
+    varDump 'expandRoutePrepareJump()'
+    first=0
+    second=1
+    last=$(( ${#route[@]} - 1 ))
+    cmd=
+    for (( i=0; i < ${#route[@]} ; i++ )); do
+        h=$(( $i - 1 ))
+        if [[ $i -gt $first ]];then
+            if [[ $i == $second ]];then
+                cmd+="${route[$h]}"
+            else
+                cmd+=",${route[$h]}"
+            fi
+        fi
+        route_host=${route[$i]}
+        route_user=$(echo $route_host | grep -E -o '^[^@]+@')
+        if [[ $route_user == "" ]];then
+            route_user=@
+        else
+            route_host=$(echo $route_host | sed 's/^'$route_user'//' )
+            route_user=$(echo $route_user | grep -E -o '[^@]+')
+        fi
+        route_port=$(echo $route_host | grep -E -o ':[0-9]+$')
+        if [[ $route_port == "" ]];then
+            route_port=22
+        else
+            route_host=$(echo $route_host | sed 's/'$route_port'$//' )
+            route_port=$(echo $route_port | grep -E -o '[0-9]+')
+        fi
+        route_hosts+=("$route_host")
+        route_users+=("$route_user")
+        route_ports+=("$route_port")
+        options=''
+        mass_arguments=${route_host}
+        if [[ ! $route_user == "@" ]];then
+            mass_arguments="${route_user}@${route_host}"
+        fi
+        if [[ ! ${route_port} == 22 ]];then
+            options+=" -p ${route_port}"
+        fi
+        if [[ ! $cmd == '' ]];then
+            options+=" -J ${cmd}"
+        fi
+        route_ssh_options+=("$options")
+        route_ssh_mass_arguments+=("$mass_arguments")
+    done
+    varDump route_hosts route_users route_ports
+    varDump route_ssh_options route_ssh_mass_arguments
 }
 
 # Validasi mass argument yang digunakan oleh internal command.
-validateInternalCommandMassArgument() {
-    for (( i=0; i < ${#mass_arguments[@]} ; i++ )); do
+validateArgumentsPreparePopulateRoute() {
+    for (( i=0; i < ${#arguments[@]} ; i++ )); do
         j=$(( $i + 1 ))
-        if [[ ${mass_arguments[$i]} =~ " " ]];then
-            error "Error. Argument '${mass_arguments[$i]}' mengandung karakter spasi."
+        if [[ ${arguments[$i]} =~ " " ]];then
+            error "Error. Argument '${arguments[$i]}' mengandung karakter spasi."
         fi
         if isEven $j ;then
-            if [[ ! ${mass_arguments[$i]} == 'via' ]];then
-                error "Error. Argument '${mass_arguments[$i]}' tidak didahului dengan 'via'."
+            if [[ ! ${arguments[$i]} == 'via' ]];then
+                error "Error. Argument '${arguments[$i]}' tidak didahului dengan 'via'."
             fi
         fi
     done
-    if isEven ${#mass_arguments[@]};then
+    if isEven ${#arguments[@]};then
         error "Error. Argument kurang lengkap."
     fi
 }
 
-# Fungsi untuk memvalidasi variable $destination.
-# Port yang tertera pada destination harus juga berada pada $command_full.
-# Contoh:`rcm -d user@host:2223 $command_full`,
-# maka pada $command_full setidaknya harus contains
-# sebagai berikut, misal: `ssh -p 2223 user@host`.
-validateDestination() {
-    # Hilangkan dulu karakter `:2223` pada destination.
-    destination_sanitize=$destination
-    _port=$(echo $destination_sanitize | grep -E -o ':[0-9]+$')
-    if [[ $_port == "" ]];then
-        _port=22
-    else
-        destination_sanitize=$(echo $destination_sanitize | sed 's/'$_port'$//' )
-        _port=$(echo $_port | grep -E -o '[0-9]+')
-    fi
-    include=0
-    for (( i=0; i < ${#command_arguments[@]} ; i++ )); do
-        if [[ ${command_arguments[$i]} == $destination_sanitize ]];then
-            include=1
-            break
-        fi
-    done
-    varDump '<$destination>'"$destination"
-    varDump '<$destination_sanitize>'"$destination_sanitize"
-    if [[ $include == 0 ]];then
-        error "The destination '${destination_sanitize}' not include in command '${command_full}'"
-    fi
-    # Jika port selain 22, maka perlu ada informasinya di $command_full berupa
-    # options -p 2223.
-    if [[ ! $_port == "22" ]];then
-        found=0
-        if [[ "$command_full" =~ -p\ ?$_port ]];then
-            found=1
-        elif [[ "$command_full" =~ -[0-9a-zA-Z]+p\ ?$_port ]];then
-            found=1
-        fi
-        if [[ $found == 0 ]];then
-            _port_command=$(getPortFromSshCommand "$command_full")
-            error "Port berbeda antara destination '${_port}' dengan command '${_port_command}'."
-        fi
-    fi
-}
-
 # Eksekusi internal command login.
-executeLogin () {
-    local z
-    local options _tunnels flag
-    writeLinesAddTunnels
-    z=$(( ${#route[@]} - 1 ))
-    last_route=${route[$z]}
-    last_hosts_actual=${hosts_actual[$z]}
-    last_ports_actual=${ports_actual[$z]}
-    last_users=${users[$z]}
-    options=
-    if [[ ! ${last_ports_actual} == 22 ]];then
-        options+="-p ${last_ports_actual} "
-    fi
-    if [[ ! $last_users == "---" ]];then
-        last_hosts_actual=${last_users}@${last_hosts_actual}
-    fi
+executeLogin() {
+    varDump 'executeLogin()'
+    local i last_route
+    i=$(( ${#route[@]} - 1 ))
+    varDump '<$i>'"$i"
+    last_route=${route[$i]}
+    case $style in
+        tunnel)
+            expandRoutePrepareTunnel
+            ssh_options=$route_last_ssh_options
+            ssh_mass_arguments=$route_last_ssh_mass_arguments
+            writeLinesAddTunnels
+            ;;
+        jump)
+            expandRoutePrepareJump
+            # varDump route_ssh_mass_arguments
+            ssh_options="${route_ssh_options[$i]}"
+            ssh_mass_arguments=${route_ssh_mass_arguments[$i]}
+    esac
     writeLinesVerbose 'echo -e "\e[93m'"SSH Connect to ${last_route}"'\e[39m"'
-    lines+=("ssh ${options}${last_hosts_actual}")
+    lines+=("ssh${ssh_options} ${ssh_mass_arguments}")
     populateTemplate
 }
 
 # Eksekusi internal command send-key.
 executeSendKey() {
-    z=$(( ${#route[@]} - 1 )) # Last index of $route.
-    varDump $last_route $last_hosts_actual $last_ports_actual $last_users
-    for (( i=0; i < ${#tunnels_command_create[@]} ; i++ )); do
-        if [[ $through == "1" ]];then
-            writeLinesSendKey $i
-        fi
-        writeLinesVerbose 'echo -e "\e[93m'"${tunnels_command_create_info[$i]}"'\e[39m"'
-        lines+=("${tunnels_command_create[$i]}")
-    done
-    for (( i=0; i < ${#tunnels_command_destroy[@]} ; i++ )); do
-        writeLinesVerbose 'echo -e "\e[93m'"${tunnels_command_destroy_info[$i]}"'\e[39m"' post
-        lines_post+=("${tunnels_command_destroy[$i]}")
-    done
-    if isCygwin;then
-        writeLinesAddGetPidCygwin
-    fi
-    writeLinesSendKey $z
+    varDump 'executeSendKey()'
+    local i last_key
+    last_key=$(( ${#route[@]} - 1 ))
+    case $style in
+        tunnel)
+            expandRoutePrepareTunnel
+            for (( i=0; i < ${#ssh_tunnel_create[@]} ; i++ )); do
+                if [[ $through == "1" ]];then
+                    # Build options and arguments.
+                    ssh_options=${route_ssh_tunnel_options[$i]}
+                    mass_arguments=${route_ssh_tunnel_mass_arguments[$i]}
+                    writeLinesSendKey
+                fi
+                writeLinesVerbose 'echo -e "\e[93m'"${ssh_tunnel_create_info[$i]}"'\e[39m"'
+                lines+=("${ssh_tunnel_create[$i]}")
+            done
+            for (( i=0; i < ${#ssh_tunnel_destroy[@]} ; i++ )); do
+                writeLinesVerbose 'echo -e "\e[93m'"${ssh_tunnel_destroy_info[$i]}"'\e[39m"' post
+                lines_post+=("${ssh_tunnel_destroy[$i]}")
+            done
+            if isCygwin;then
+                writeLinesAddGetPidCygwin
+            fi
+            ssh_options=$route_last_ssh_options
+            mass_arguments=$route_last_ssh_mass_arguments
+            writeLinesSendKey
+            ;;
+        jump)
+            expandRoutePrepareJump
+            for (( i=0; i < ${#route[@]} ; i++ )); do
+                ssh_options=${route_ssh_options[$i]}
+                mass_arguments=${route_ssh_mass_arguments[$i]}
+                if [[ ! $i == $last_key ]];then
+                    if [[ $through == "1" ]];then
+                        writeLinesSendKey
+                    fi
+                else
+                    writeLinesSendKey
+                fi
+            done
+    esac
     populateTemplate
 }
 
-# Fungsi untuk eksekusi command yang didalamnya mengandung remote host.
-executeCommand() {
-    local i options
-    z=$(( ${#route[@]} - 1 ))
-    last_route=${route[$z]}
-    last_hosts_actual=${hosts_actual[$z]}
-    last_ports_actual=${ports_actual[$z]}
-    last_users=${users[$z]}
-    # Tunnels.
-    writeLinesAddTunnels
-    # Replacement host.
-    if [[ ! $last_users == "---" ]];then
-        last_hosts_actual=${last_users}@${last_hosts_actual}
+# Fungsi untuk meng-compare version antara dua string.
+# Penggunaan: vercomp 7.0 8.0
+# Hasilnya dapat diperoleh dari variable $?
+# dimana 0 = sama, 1 = lebih besar, 2 = lebih kecil
+# Credit: https://stackoverflow.com/a/4025065/7074586
+vercomp () {
+    if [[ $1 == $2 ]]
+    then
+        return 0
     fi
-    command_replacement=$(echo "$command_full" | sed 's/'$destination_sanitize'/'$last_hosts_actual'/')
-    # Modifikasi tergantung pada command.
-    # Command yang saat ini disupport adalah sebagai berikut:
-    case $command in
-        ssh)
-            # Jika pada $command_full terdapat argument -p, maka replace
-            # dengan port yang saat ini.
-            if [[ "$command_replacement" =~ -p\ ?[0-9]+\  ]];then
-                command_replacement=$(echo "$command_replacement" | sed -nE 's/-p(\s*)[0-9]+\s/-p\1'$last_ports_actual' /p')
-            elif [[ "$command_replacement" =~ -[0-9a-zA-Z]+p\ ?[0-9]+\  ]];then
-                command_replacement=$(echo "$command_replacement" | sed -nE 's/-([0-9a-zA-Z]+)p(\s*)[0-9]+\s/-\1p\2'$last_ports_actual' /p')
-            else
-                command_replacement=$(echo "$command_replacement" | sed -nE 's/ssh/ssh -p '$last_ports_actual'/p')
-            fi
-            ;;
-        rsync)
-            echo
-            ;;
-    esac
-    writeLinesVerbose 'echo -e "\e[93m'"Execute '${command}' command on '${last_route}'."'\e[39m"'
-    lines+=("$command_replacement")
-    populateTemplate
+    local IFS=.
+    local i ver1=($1) ver2=($2)
+    # fill empty fields in ver1 with zeros
+    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+    do
+        ver1[i]=0
+    done
+    for ((i=0; i<${#ver1[@]}; i++))
+    do
+        if [[ -z ${ver2[i]} ]]
+        then
+            # fill empty fields in ver2 with zeros
+            ver2[i]=0
+        fi
+        if ((10#${ver1[i]} > 10#${ver2[i]}))
+        then
+            return 1
+        fi
+        if ((10#${ver1[i]} < 10#${ver2[i]}))
+        then
+            return 2
+        fi
+    done
+    return 0
+}
+
+# Fungsi untuk mengembalikan versi dari program ssh yang sekarang sedang
+# digunakan. Memparse output dari ssh -V mengembalikan nilai float.
+# Contoh output: 7.2, 7.4
+getCurrentSshProgramVersion() {
+    echo $(ssh -V 2>&1 | grep -o -P 'OpenSSH_\K([0-9]+\.[0-9]+)')
 }
 
 # Fungsi untuk mencetak error dan exit.
@@ -815,82 +862,31 @@ else
     set -- ${@:-$(</dev/stdin)}
     # Process Standard Input.
 fi
-
-# Parse options (locate between rcm and command) that using style
-# --long-options or options that require argument.
+# Parse options (locate between rcm and command).
 while [[ $# -gt 0 ]]; do
-    case $1 in
-        # Flag options pass to $options.
-        --preview|-p| --interactive|-i|--quiet|-q)
-            options+=("$1")
-            shift
-            ;;
-        -d) destination=$2; shift 2 ;;
-        --destination=*) destination=("$(echo $1 | cut -c15-)"); shift ;;
-        -t) tunnels+=("$2"); shift 2 ;;
-        --tunnel=*) tunnels+=("$(echo $1 | cut -c10-)"); shift ;;
-        *)
-            if [[ $1 =~ ^- ]];then
-                # Pass to $options.
-                # Contoh kasus options -d yang menempel pada options lainnya:
-                # rcm -iqd host ssh host
-                while getopts ":piqt:d:" opt; do
-                    case $opt in
-                        p|i|q)
-                            options+=("-$opt")
-                            ;;
-                        t) tunnels+=("$OPTARG") ;;
-                        d) destination="$OPTARG" ;;
-                        \?) echo "Invalid option: -$OPTARG" >&2 ;;
-                        :) echo "Option -$OPTARG requires an argument." >&2 ;;
-                    esac
-                done
-                shift $((OPTIND-1))
-            fi
-            # Jika ketemu mass argument, maka break.
-            break
-    esac
+    varDump '<$1>'"$1"
+    arguments+=("$1")
+    shift
 done
-
+varDump arguments
+setOptions arguments once
+varDump arguments
+set -- ${arguments[@]}
 if [[ $# == 0 ]];then
     error "Command not found."
 fi
-
 case "$1" in
     login|send-key|push|pull|manage|open-port|mount)
-        command_type=internal_command
         command="$1"
         shift
         ;;
     *)
-        command_type=external_command
-        command="$1"
-        command_full="$@"
-        shift
-        ;;
+        error "Command unknown: '$1'."
 esac
-
-case $command_type in
-    # Pada internal command, options bisa berada pada posisi buntut.
-    internal_command)
-        while [[ $# -gt 0 ]]; do
-            if [[ $1 =~ ^- ]];then
-                options+=("$1")
-            else
-                mass_arguments+=("$1")
-            fi
-            shift
-        done
-        ;;
-    external_command)
-        while [[ $# -gt 0 ]]; do
-            command_arguments+=("$1")
-            shift
-        done
-esac
-
-varDump destination tunnels
-varDump interactive verbose through preview
-varDump command_type command command_full command_arguments
-varDump options mass_arguments
+# Parse options (locate after command).
+arguments=("$@")
+setOptions arguments
+varDump arguments
+varDump options verbose interactive preview through style
+validateOptions
 execute

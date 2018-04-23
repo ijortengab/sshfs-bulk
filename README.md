@@ -2,53 +2,61 @@ Remote Connection Manager
 =========================
 
 RCM provide you a simple way to do activity on remote access specially to create
-tunnelling (local port forwarding).
+tunnel (local port forwarding).
 
 RCM works with generate bash script that you can manually review before execute.
 
 ## Getting Started
 
-Before you know `rcm`.
+Scenario:
 
-Login to ijortengab@office.lan via host proxy staff-it@company.com
+You have a virtual machine in PC at Office and your Office has the rack server
+that have internet connection.
 
-```
-ssh -fN -L 50011:office.lan:22 staff-it@company.com
-ssh -p 50011 ijortengab@localhost
-```
+To access your virtual machine, you must jump to server then jump to your PC and
+then jump to virtual machine inside PC.
 
-After you know `rcm`.
-
-```
-rcm login ijortengab@office.lan via staff-it@company.com
-```
-
-And you can use unlimited tunnel use this format:
+RCM helps you on that scenario:
 
 ```
-rcm login [USER@]HOST[:PORT] [via [USER@]HOST[:PORT]]...
+rcm -t staff@company.com -t ijortengab@pc-office ssh ijortengab@vm
 ```
 
-RCM provide another solution: send command, send public key, synchronize
-directory, and every task that using tunnel (local port forwarding).
+or using alternative human readable:
+
+```
+rcm login ijortengab@vm via ijortengab@pc-office via staff@company.com
+```
+
+RCM can do more to make you easy to work on remote host, such as:
+
+ - sending public key to avoid password prompt
+ - synchronize file or directory
+ - opening port to access application.
 
 ## Installation
 
 Download from Github.
 
 ```
-wget -O rcm https://raw.githubusercontent.com/ijortengab/rcm/master/rcm.sh
+wget https://git.io/rcm
 chmod u+x rcm
 ```
 
-You can put anywhere in $PATH or make your own alias so you can execute with
-command `rcm`.
+You can put `rcm` file anywhere in $PATH or make your own alias so you can
+execute with command `rcm`.
+
+```
+sudo mv rcm -t /usr/local/bin
+```
 
 ## How to use
 
 ```
-Usage: rcm [OPTIONS] external_command (external_command's options and arguments)
-  or   rcm [OPTIONS] internal_command [OPTIONS] [ARGUMENTS]
+Usage: rcm [OPTIONS] origin_command
+  or   rcm [OPTIONS] alternative_command
+
+Using rcm without or incomplete arguments will show wizard.
 
 Options
  -p, --preview               Preview the generated code.
@@ -79,21 +87,27 @@ Internal command:
   - `open-port`
   - `mount`
 
-## SSH Example
+## SSH / LOGIN
 
 SSH login to destination that require jump in two tunnel:
 
 ```
-rcm -d guest@virtualmachine.vm -t ijortengab@office.lan -t staff-it@company.com ssh guest@virtualmachine.vm
+rcm -t staff@company.com -t ijortengab@pc-office ssh ijortengab@vm
+```
+
+or SSH send command:
+
+```
+rcm -t staff@company.com -t ijortengab@pc-office ssh ijortengab@vm /backup.sh
 ```
 
 Alternative syntax using special command that easy to read:
 
 ```
-rcm login guest@virtualmachine.vm via ijortengab@office.lan via staff-it@company.com
+rcm login ijortengab@vm via ijortengab@office.lan via staff-it@company.com
 ```
 
-SSH send command to produce output:
+SSH send command 
 
 ```
 rcm -d guest@virtualmachine.vm -t ijortengab@office.lan -t staff-it@company.com ssh guest@virtualmachine.vm echo 1'
