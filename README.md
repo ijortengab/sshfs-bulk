@@ -1,38 +1,52 @@
+
+
 Remote Connection Manager
 =========================
 
-RCM provide you a simple way to do activity on remote access specially to create
-tunnel (local port forwarding).
+RCM provide you a simple way to do activity on remote access.
 
-RCM works with generate bash script that you can manually review before execute.
+RCM works with generate bash script that you can manually preview before execute.
 
 ## Getting Started
 
 Scenario:
 
-You have a virtual machine in PC at Office and your Office has the rack server
-that have internet connection.
+You have a virtual machine inside your PC at Office. Your Office has the rack
+server that have IP Public.
 
-To access your virtual machine, you must jump to server then jump to your PC and
-then jump to virtual machine inside PC.
+To access your virtual machine, you must jump to server then jump to your PC
+and then jump to virtual machine.
 
 RCM helps you on that scenario:
 
 ```
-rcm -t staff@company.com -t ijortengab@pc-office ssh ijortengab@vm
+rcm login guest@vm via ijortengab@office:2222 via staff@company.com:80
 ```
 
-or using alternative human readable:
+Command above helps you to generate bash script like this:
 
 ```
-rcm login ijortengab@vm via ijortengab@pc-office via staff@company.com
+ssh -J staff@company.com:80,ijortengab@office:2222 guest@vm
+```
+
+or this complicated one:
+
+```
+ssh -p 80 -fN -L 50000:office:2222 staff@company.com
+ssh -p 50000 -fN -L 50001:vm:22 ijortengab@localhost
+ssh -p 50001 guest@localhost
 ```
 
 RCM can do more to make you easy to work on remote host, such as:
 
- - sending public key to avoid password prompt
- - synchronize file or directory
- - opening port to access application.
+- sending public key to avoid password prompt
+- opening resource  (port on remote host) to access it in localhost
+
+Coming soon:
+
+- manage host to easy re-use instead of save it in plain text
+- synchronize file or directory (rsync)
+- mount remote directory in local (sshfs)
 
 ## Installation
 
@@ -40,7 +54,7 @@ Download from Github.
 
 ```
 wget https://git.io/rcm
-chmod u+x rcm
+chmod a+x rcm
 ```
 
 You can put `rcm` file anywhere in $PATH or make your own alias so you can
@@ -52,115 +66,82 @@ sudo mv rcm -t /usr/local/bin
 
 ## How to use
 
+**General**
+
 ```
-Usage: rcm [OPTIONS] origin_command
-  or   rcm [OPTIONS] alternative_command
+Usage: rcm [OPTIONS] command [ROUTE]
 
-Using rcm without or incomplete arguments will show wizard.
-
-Options
+Options:
  -p, --preview               Preview the generated code.
- -i, --interactive           Preview the generated code and ask to do.
  -q, --quiet                 The generated code will not produce any output.
- -t, --tunnel=HOST           Create tunnel from host (may be more than one).
- -d, --destination=HOST      If tunnel option triggered, the destination must
-                             be define to help rcm replace the destination with
-                             localhost.
- -h, --help                  Show help and exit.
+ -s, --style=STYLE           Default to 'auto'. How template of code that
+                             you prefer to generated. Option available is:
+                             - 'jump' use ProxyJump ssh -J
+                             - 'tunnel' use Local Port Forwarding ssh -L
 
-There are available options specific per internal commands.
-Run 'rcm internal_command --help' for more options.
+Example of ROUTE:
+
+  guest@vm via ijortengab@office:2222 via staff@company.com:80
+
+which
+- guest@vm                  The destination
+- ijortengab@office:2222    The jump host to guest@vm
+- staff@company.com:80      The jump host to ijortengab@office:2222
+Your terminal will access staff@company.com:80 first.
 ```
 
-External command:
-
-You can use any command that work with remote host. We will create the
-tunnel and replace remote host with localhost. External command that officially
-support is: `ssh`, `rsync`, `sshfs`.
-
-Internal command:
-  - `login`
-  - `send-key`
-  - `push`
-  - `pull`
-  - `manage`
-  - `open-port`
-  - `mount`
-
-## SSH / LOGIN
-
-SSH login to destination that require jump in two tunnel:
+**Login**
 
 ```
-rcm -t staff@company.com -t ijortengab@pc-office ssh ijortengab@vm
+Usage: rcm login ROUTE
+
+Ssh login to destination in ROUTE.
+
+Example:
+  rcm login guest@vm via ijortengab@office:2222 via staff@company.com:80
+
+Specific options:
+  None
 ```
 
-or SSH send command:
+**Send Public Key**
 
 ```
-rcm -t staff@company.com -t ijortengab@pc-office ssh ijortengab@vm /backup.sh
+Usage: rcm send-key ROUTE
+
+Ssh command to sending your public key to entire address or destinaton only
+in ROUTE. This help you to avoid input password for the next login.
+
+Example:
+  rcm send-key guest@vm via ijortengab@office:2222 via staff@company.com:80
+
+Specific options:
+  -l, --last-one             Send public key only to destination. Default to
+                             entire address in ROUTE.
+  -k, --public-key           Specify the public key path. Default to
+                             ~/.ssh/id_rsa.pub, ~/.ssh/id_dsa.pub,
+                             ~/.ssh/id_ecdsa.pub, ~/.ssh/id_ed25519.pub
 ```
 
-Alternative syntax using special command that easy to read:
+**Open port**
 
 ```
-rcm login ijortengab@vm via ijortengab@office.lan via staff-it@company.com
-```
+Usage: rcm open-port ROUTE
+  or   rcm open-port PORT ROUTE
 
-SSH send command 
+Ssh command to access remote resource in localhost port.
 
-```
-rcm -d guest@virtualmachine.vm -t ijortengab@office.lan -t staff-it@company.com ssh guest@virtualmachine.vm echo 1'
-```
+Example:
+  Open port SSH, to access destination with WinSCP.
+    rcm open-port vm via ijortengab@office via staff@company.com
 
-## RSYNC example
+  Open port VNC of destination direct from last tunnel without SSH.
+    rcm open-port vm:5900 via ijortengab@office via staff@company.com
 
-```
-rcm -d guest@virtualmachine.vm -t ijortengab@office.lan -t staff-it@company.com rsync -avrP /home/ijortengab/public_html/ guest@virtualmachine.vm:public_html
-```
+  Open port VNC of destination after SSH login to last destination.
+    rcm open-port 5900 guest@vm via ijortengab@office via staff@company.com
 
-Alternative syntax using special command that easy to read:
-
-```
-rcm push guest@virtualmachine.vm via ijortengab@office.lan via staff-it@company.com from /home/ijortengab/public_html/ to public_html
-```
-
-```
-rcm pull guest@virtualmachine.vm via ijortengab@office.lan via staff-it@company.com from public_html/ to /home/ijortengab/public_html
-```
-
-## SSHFS example
-
-Todo.
-
-## Special command
-
-Special command is ignore option: -t, --tunnel=HOST, -d, --destination=HOST.
-The destination is set as argument, and the tunnel is declare with argument
-'via HOST'.
-
-## Login
-
-```
-rcm login guest@virtualmachine.vm via ijortengab@office.lan via staff-it@company.com
-```
-
-Options available: -i -q. See `rcm login --help`
-
-## Send Public Key
-
-```
-rcm send-key guest@virtualmachine.vm via ijortengab@office.lan via staff-it@company.com
-```
-
-Options available: -i -q -l. See `rcm send-key --help`
-
-## Open port
-
-```
-rcm open-port guest@virtualmachine.vm via roji@reversrproxy.ui.ac.id via staff-it@company.com
-```
-
-```
-rcm open-port guest@virtualmachine.vm:5900 via guest@virtualmachine.vm via roji@reversrproxy.ui.ac.id via staff-it@company.com
+Specific options:
+  -n, --number               Set your own localhost port number. Default to
+                             random.
 ```
