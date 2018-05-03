@@ -914,7 +914,7 @@ executeOpenPort() {
             last_route=${route[$z]}
             second_to_last_route=${route[$y]}
             route_tunnel=("$second_to_last_route" "$last_route")
-            ssh_tunnel_options=(" -J ${ssh_route_jumps[$y]}")
+            ssh_tunnel_options=("${ssh_route_options[$y]}")
             # Create tunnel.
             populateTunnel
             writeLinesTunnelsCreate 0 pre
