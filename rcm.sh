@@ -724,7 +724,9 @@ validateNumberingOpenPort() {
         mkdir -p $RCM_DIR_PORTS
         cd $RCM_DIR_PORTS
         host_port=`ls -U | grep $numbering | head -1 | xargs cat`
-        if [[ ! $host_port == "" ]];then
+        if [[ $host_port == "" ]];then
+            echo $last_host > $numbering
+        else
             if [[ ! $host_port == $last_host ]];then
                 error "Port ${numbering} has been assigned to host '${host_port}'."
             fi
