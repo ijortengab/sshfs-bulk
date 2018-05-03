@@ -33,7 +33,7 @@ add_var_tunnel_success=0
 
 # Developer only.
 # Flag untuk mengaktifkan fungsi varDump.
-debug=0
+debug=1
 
 # Informasi Global Variables.
 # ---------------------------
@@ -531,7 +531,6 @@ setOptions() {
     arguments=()
     # Set options.
     while [[ $# -gt 0 ]]; do
-        varDump '<$1>'"$1"
         case $1 in
         -) shift;;
         --preview|-p) preview=1 ; shift;;
@@ -579,6 +578,22 @@ setOptions() {
     varDump 'End of function setOptions()'
 }
 
+validateArguments() {
+    set -- ${arguments[@]}
+    if [[ $# == 0 ]];then
+    error "Command not found."
+    fi
+    case "$1" in
+        login|send-key|push|pull|manage|open-port|mount)
+            command="$1"
+            shift
+            ;;
+        *)
+            error "Command unknown: '$1'."
+    esac
+    # Parse options (locate after command).
+    arguments=("$@")
+}
 # Validasi options yang diinput oleh user pada argument.
 # Saat ini baru memvalidasi input style.
 #
@@ -1667,51 +1682,40 @@ generateCode() {
         done
         chmod u+x $RCM_EXE
         /bin/bash $RCM_EXE
+        # setsid sh -c '$RCM_EXE'
     fi
     varDump 'End of function generateCode()'
 }
 
-# Jika dari terminal. Contoh: `rcm ssh user@localhost`.
+# Jika dari terminal. Contoh: `rcm login user@localhost`.
 if [ -t 0 ]; then
-    # Process Reguler via terminal.
     # Jika tidak ada argument.
     if [[ $1 == "" ]];then
-        # clear
         # Coming Soon.
+        # clear
         exit
     fi
-# Jika dari standard input. Contoh: `echo ssh user@localhost | rcm`.
+    arguments=("$@")
+# Jika dari standard input. Contoh: `echo user@localhost | rcm login`.
 else
-    set -- ${@:-$(</dev/stdin)}
-    # Process Standard Input.
-fi
-# Parse options (locate between rcm and command).
-while [[ $# -gt 0 ]]; do
-    # varDump '<$1>'"$1"
-    arguments+=("$1")
-    shift
-done
-# varDump arguments
-setOptions once
-# varDump arguments
-set -- ${arguments[@]}
-if [[ $# == 0 ]];then
-    error "Command not found."
-fi
-case "$1" in
-    login|send-key|push|pull|manage|open-port|mount)
-        command="$1"
+    # Merge argument dari rcm dengan standard input.
+    while [[ $# -gt 0 ]]; do
+        arguments+=("$1")
         shift
-        ;;
-    *)
-        error "Command unknown: '$1'."
-esac
-# Parse options (locate after command).
-arguments=("$@")
-varDump arguments
-setOptions
-varDump arguments
+    done
+    set -- ${@:-$(</dev/stdin)}
+    while [[ $# -gt 0 ]]; do
+        arguments+=("$1")
+        shift
+    done
+fi
+varDump 'Original arguments:' arguments
+setOptions once # Parse options (locate between rcm and command).
+varDump 'Modified arguments (1):' arguments
+validateArguments
+varDump 'Modified arguments (2):' arguments
+setOptions # Parse options (locate after command).
+varDump 'Modified arguments (3):' arguments
 varDump verbose preview through style public_key numbering
 validateOptions
-varDump arguments
 execute
