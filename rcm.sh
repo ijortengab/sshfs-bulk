@@ -709,6 +709,9 @@ validatePublicKey() {
 #   None
 validateNumberingOpenPort() {
     local host_port z
+    if [[ $numbering == 'auto' ]];then
+        return 0
+    fi
     if [[ ! $numbering =~ ^[1-9]+[0-9]*$ ]];then
         error "Port number invalid." # Include zero.
     fi
@@ -904,7 +907,6 @@ executeOpenPort() {
             for (( i=0; i < $tunnel_count ; i++ )); do
                 writeLinesTunnelsCreate $i pre
             done
-            writeLinesCheckTunnels
             ;;
         jump)
             populateJump
@@ -918,6 +920,7 @@ executeOpenPort() {
             writeLinesTunnelsCreate 0 pre
             ;;
     esac
+    writeLinesCheckTunnels
     writeLinesVerbose 'echo -e "\e[93m'"Access to ${last_host} port ${last_port} opened from localhost port \e[95m${destination_port}\e[93m."'\e[39m"'
     if [[ $verbose == 0 ]];then
         # Output minimal ketika quiet adalah result dari open port.
