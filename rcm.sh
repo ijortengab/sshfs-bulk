@@ -15,6 +15,7 @@
 # Define.
 RCM_ROOT=$HOME/.config/rcm
 RCM_DIR_PORTS=$RCM_ROOT/ports
+RCM_DIR_ROUTE=$RCM_ROOT/route
 RCM_EXE=$RCM_ROOT/exe
 RCM_PORT_START=49152
 
@@ -23,6 +24,7 @@ options=()
 verbose=1
 preview=0
 through=1
+interactive=0
 style=auto
 public_key=auto
 numbering=auto
@@ -33,7 +35,7 @@ add_var_tunnel_success=0
 
 # Developer only.
 # Flag untuk mengaktifkan fungsi varDump.
-debug=1
+debug=0
 
 # Informasi Global Variables.
 # ---------------------------
@@ -124,9 +126,13 @@ debug=1
 #
 # ```
 # $route = ( "staff-it@company.com:80" "ijortengab@office.lan:2223" "guest@virtualmachine.vm" )
+# $route_string = "guest@virtualmachine.vm via ijortengab@office.lan:2223 via staff-it@company.com:80"
 # $route_hosts = ( "company.com" "office.lan" "virtualmachine.vm" )
 # $route_users = ( "staff-it" "ijortengab" "guest" )
 # $route_ports = ( "80" "2223" "22" )
+# $destination_host = "virtualmachine.vm"
+# $destination_user = "guest"
+# $destination_port = "22"
 # ```
 #
 # Variable khusus jika dibutuhkan Jump:
@@ -536,6 +542,7 @@ setOptions() {
         --preview|-p) preview=1 ; shift;;
         --quiet|-q) verbose=0 ; shift;;
         --last-one|-l) through=0 ; shift;;
+        --interactive|-i) interactive=1; shift ;;
         --style=*) style="$(echo $1 | cut -c9-)"; shift ;;
         --public-key=*) public_key="$(echo $1 | cut -c14-)"; shift ;;
         --number=*) numbering="$(echo $1 | cut -c15-)"; shift ;;
@@ -546,12 +553,13 @@ setOptions() {
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":pqls:k:n:" opt; do
+                while getopts ":pqls:k:n:i" opt; do
                     varDump '<$opt>'"$opt"
                     case $opt in
                         p) preview=1 ;;
                         q) verbose=0 ;;
                         l) through=0 ;;
+                        i) interactive=1 ;;
                         s) style="$OPTARG" ;;
                         k) public_key="$OPTARG" ;;
                         n) numbering="$OPTARG" ;;
@@ -584,7 +592,11 @@ validateArguments() {
     error "Command not found."
     fi
     case "$1" in
-        login|send-key|push|pull|manage|open-port|mount)
+        login|send-key|open-port|history)
+            command="$1"
+            shift
+            ;;
+        l|sk|op|h)
             command="$1"
             shift
             ;;
@@ -594,6 +606,7 @@ validateArguments() {
     # Parse options (locate after command).
     arguments=("$@")
 }
+
 # Validasi options yang diinput oleh user pada argument.
 # Saat ini baru memvalidasi input style.
 #
@@ -636,6 +649,7 @@ validateOptions() {
 #
 # Globals:
 #   Used: arguments
+#   Modified: route_string
 #
 # Arguments:
 #   None
@@ -643,7 +657,12 @@ validateOptions() {
 # Returns:
 #   None
 validateArgumentsBeforePopulateRoute() {
-    local i j
+    local i j string
+    for string in ${arguments[@]}; do
+        route_string+="$string "
+    done
+    route_string=`echo "$route_string" | sed 's/\ $//'`
+    varDump route_string
     for (( i=0; i < ${#arguments[@]} ; i++ )); do
         j=$(( $i + 1 ))
         if [[ ${arguments[$i]} =~ " " ]];then
@@ -780,20 +799,20 @@ execute() {
     varDump 'Begin of function execute()'
     varDump command
     case $command in
-        login)
+        login|l)
             validateMinimalArgument 1
             validateArgumentsBeforePopulateRoute
             populateRoute
             executeLogin
             ;;
-        send-key)
+        send-key|sk)
             validateMinimalArgument 1
             validatePublicKey
             validateArgumentsBeforePopulateRoute
             populateRoute
             executeSendKey
             ;;
-        open-port)
+        open-port|op)
             validateMinimalArgument 2
             prepareFirstArgumentAsPort
             validateArgumentsBeforePopulateRoute
@@ -801,6 +820,9 @@ execute() {
             validateNumberingOpenPort
             modifyRouteBeforeOpenPort
             executeOpenPort
+            ;;
+        history|h)
+            executeHistory
     esac
     varDump 'End of function execute()'
 }
@@ -836,6 +858,7 @@ executeLogin() {
     last_route=${route[$z]}
     writeLinesVerbose 'echo -e "\e[93m'"SSH Connect to ${last_route}"'\e[39m"'
     writeLines "ssh${ssh_options} ${ssh_mass_arguments}"
+    saveHistory
     generateCode
     varDump 'End of function executeLogin()'
 }
@@ -894,6 +917,7 @@ executeSendKey() {
                 fi
             done
     esac
+    saveHistory
     generateCode
     varDump 'End of function executeSendKey()'
 }
@@ -943,8 +967,34 @@ executeOpenPort() {
         # Output minimal ketika quiet adalah result dari open port.
         writeLines 'echo '$destination_port' >&1'
     fi
+    saveHistory
     generateCode
     varDump 'End of function executeOpenPort()'
+}
+
+# Eksekusi command history.
+#
+# Globals:
+#   Used: RCM_DIR_ROUTE, interactive
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   None
+executeHistory() {
+    local files_by_name string
+    if [[ $interactive == 0 ]];then
+        mkdir -p $RCM_DIR_ROUTE
+        cd $RCM_DIR_ROUTE
+        files_by_name=(`ls -vr $RCM_DIR_ROUTE | head -10`)
+        for string in "${files_by_name[@]}"
+        do
+            cat "$string" >&1
+        done
+    else
+        echo 'Coming soon.'
+    fi
 }
 
 # Mengisi value dari variable $route* dan lainnya yang terkait.
@@ -973,7 +1023,12 @@ populateRoute() {
         route_users+=("$_user")
         route_ports+=("$_port")
     done
+    z=$(( ${#route[@]} - 1 ))
+    destination_host="${route_hosts[$z]}"
+    destination_user="${route_users[$z]}"
+    destination_port="${route_ports[$z]}"
     varDump route route_hosts route_users route_ports
+    varDump destination_host destination_user destination_port
     varDump 'End of function populateRoute()'
 }
 
@@ -1215,7 +1270,8 @@ getRandomLocalPorts() {
     mkdir -p "${RCM_DIR_PORTS}"
     cd "${RCM_DIR_PORTS}"
     varDump '<$1>'"$1"
-    files=(`grep -r $1 | cut -d: -f1 | sort -n`)
+    # Mencari file berdasarkan contain.
+    files=(`grep -r -E '^'"$1"'$' | cut -d: -f1 | sort -n`)
     varDump files
     port=
     for string in "${files[@]}"
@@ -1359,6 +1415,40 @@ implodeAddress() {
         fi
     fi
     echo $host
+}
+
+# Memecah penamaan filename history dengan format
+# [HIT_COUNT]_[DESTINATION_HOST]_[VARIATION] dengan mengisi variable
+# terkait yakni $_hit, $_host, $_variation.
+#
+# Globals:
+#   Modified: _hit, _host, _variation
+#
+# Arguments:
+#   $1: Filename
+#
+# Returns:
+#   None
+explodeFileHistory() {
+    _hit=$(echo $1 | grep -E -o '^[0-9]+' )
+    _variation=$(echo $1 | grep -E -o '[0-9]+$' )
+    _host=$(echo $1 | sed 's/^'$_hit'_//' | sed 's/_'$_variation'$//')
+}
+
+# Merakit kemudian mencetak filename history dari element hit, host, variation.
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   $1: Hit
+#   $2: Host
+#   $3: Variation
+#
+# Returns:
+#   None
+implodeFileHistory() {
+    echo "$1"_"$2"_"$3"
 }
 
 # Merakit kemudian mencetak ssh command untuk membuat tunnel.
@@ -1541,6 +1631,7 @@ writeLinesAddGetPidCygwin() {
     lines_function+=("    done")
     lines_function+=("    IFS=\$ifs")
     lines_function+=("}")
+    lines_function+=("")
 }
 
 # Menyimpan code kedalam variable $lines*
@@ -1621,6 +1712,53 @@ writeLinesSendKey() {
     writeLinesVerbose 'else'
     writeLinesVerbose '    echo -e "\e[93m- SSH connect using key is successful thus sending key is not necessary.\e[39m"'
     writeLines        'fi'
+}
+
+# Menyimpan history route kedalam file text.
+#
+# Globals:
+#   Used: RCM_DIR_ROUTE, preview, route_string
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   None
+saveHistory() {
+    local filename files_by_name files_by_contains
+    local _hit _host _variation
+    if [[ $preview == 0 ]];then
+        mkdir -p $RCM_DIR_ROUTE
+        cd $RCM_DIR_ROUTE
+        # Mencari file berdasarkan contain.
+        files_by_contains=(`grep -r -E '^'"${route_string}"'$' | cut -d: -f1 | sort -n`)
+        if [[ ${#files_by_contains[@]} == 0 ]];then
+            filename="1_${destination_host}_1"
+            files_by_name=(`ls -U | grep -E '^[0-9]+'_"${destination_host}"'_[0-9]+$'`)
+            if [[ ${#files_by_name[@]} -gt 0 ]];then
+                n=1
+                while :
+                do
+                    files_by_name=(`ls -U | grep -E '^[0-9]+'_"${destination_host}"'_'"$n"'$'`)
+                    if [[ ${#files_by_name[@]} == 0 ]];then
+                        break
+                    else
+                        let n++
+                    fi
+                done
+                filename="1_${destination_host}_${n}"
+            fi
+            echo $route_string > $filename
+        elif [[ ${#files_by_contains[@]} -gt 1 ]];then
+            # Coming soon. Manage duplicate entry.
+            error "Duplicate entry."
+        else
+            explodeFileHistory ${files_by_contains[0]}
+            let _hit++
+            filename=`implodeFileHistory $_hit $_host $_variation`
+            mv ${files_by_contains[0]} $filename
+        fi
+    fi
 }
 
 # Generate code kemudian preview atau eksekusi.
