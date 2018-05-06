@@ -533,7 +533,7 @@ setOptions() {
     local loop
     varDump 'Begin of function setOptions()'
     loop=$1
-    set -- ${arguments[@]}
+    set -- "${arguments[@]}"
     arguments=()
     # Set options.
     while [[ $# -gt 0 ]]; do
@@ -545,7 +545,7 @@ setOptions() {
         --interactive|-i) interactive=1; shift ;;
         --style=*) style="$(echo $1 | cut -c9-)"; shift ;;
         --public-key=*) public_key="$(echo $1 | cut -c14-)"; shift ;;
-        --number=*) numbering="$(echo $1 | cut -c15-)"; shift ;;
+        --number=*) numbering="$(echo $1 | cut -c10-)"; shift ;;
         -s) style=$2; shift; shift ;;
         -k) public_key=$2; shift; shift ;;
         -n) numbering=$2; shift; shift ;;
@@ -1315,7 +1315,7 @@ getRandomLocalPorts() {
 #   None
 prepareFirstArgumentAsPort() {
     varDump 'Begin of function prepareFirstArgumentAsPort() '
-    set -- ${arguments[@]}
+    set -- "${arguments[@]}"
     if [[ $1 =~ ^[0-9]+$ ]];then
         _argument_port="$1"
         shift
