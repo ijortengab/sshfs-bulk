@@ -429,49 +429,6 @@ isPortFree() {
     return 1
 }
 
-# Mengeset options pada argument kedalam variable terkait.
-#
-# Globals:
-#   Used: arguments
-#   Modified: arguments, preview, verbose, through, style
-#
-# Arguments:
-#   $1: Tipe looping (once or none)
-#       Once artinya jika bertemu mass argument maka penge-set-an options
-#       dihentikan.
-#
-# Returns:
-#   None
-setOptions() {
-    local loop
-    loop=$1
-    set -- "${arguments[@]}"
-    arguments=()
-    # Set options.
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-        -) shift;;
-        *)
-            if [[ $1 =~ ^- ]];then
-                # Reset builtin function getopts.
-                shift
-            else
-                # Mass arguments dikembalikan ke variable semula.
-                if [[ $loop == once ]];then
-                    while [[ $# -gt 0 ]]; do
-                        arguments+=("$1")
-                        shift
-                    done
-                    break
-                else
-                    arguments+=("$1")
-                    shift
-                fi
-            fi
-        esac
-    done
-}
-
 validateArguments() {
     set -- ${arguments[@]}
     if [[ $# == 0 ]];then
@@ -1654,8 +1611,6 @@ if [[ $1 == "" ]];then
     exit
 fi
 arguments=("$@")
-setOptions once # Parse options (locate between rcm and command).
 validateArguments
-setOptions # Parse options (locate after command).
 validateOptions
 execute

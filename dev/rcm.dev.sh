@@ -41,8 +41,6 @@ VarDump ---
 VarDump '<$1>'"$1"
 arguments=("$@")
 VarDump arguments
-setOptions once # Parse options (locate between rcm and command).
 validateArguments
-setOptions # Parse options (locate after command).
 validateOptions
 execute
