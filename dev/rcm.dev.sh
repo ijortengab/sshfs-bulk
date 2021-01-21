@@ -12,6 +12,7 @@
 # - function is camelCase.
 # - indent is 4 spaces.
 
+source $(dirname $0)/bash/functions/var-dump/dev/var-dump.function.sh
 # Define.
 RCM_ROOT=$HOME/.config/rcm
 RCM_DIR_PORTS=$RCM_ROOT/ports
