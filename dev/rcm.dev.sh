@@ -39,8 +39,15 @@ if [[ $1 == "" ]];then
 fi
 VarDump ---
 VarDump '<$1>'"$1"
+command="$1";
+case $command in
+    login|l) shift ;;
+    send-key|sk) shift ;;
+    open-port|op) shift ;;
+    history|h) shift ;;
+    *) error "Command unknown: '$1'."
+esac
 arguments=("$@")
 VarDump arguments
-validateArguments
 validateOptions
 execute

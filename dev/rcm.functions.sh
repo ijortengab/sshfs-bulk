@@ -356,27 +356,6 @@ isPortFree() {
     return 1
 }
 
-validateArguments() {
-    set -- ${arguments[@]}
-    if [[ $# == 0 ]];then
-    error "Command not found."
-    fi
-    case "$1" in
-        login|send-key|open-port|history)
-            command="$1"
-            shift
-            ;;
-        l|sk|op|h)
-            command="$1"
-            shift
-            ;;
-        *)
-            error "Command unknown: '$1'."
-    esac
-    # Parse options (locate after command).
-    arguments=("$@")
-}
-
 # Validasi options yang diinput oleh user pada argument.
 # Saat ini baru memvalidasi input style.
 #
