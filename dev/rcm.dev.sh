@@ -24,7 +24,6 @@ RCM_PORT_START=49152
 
 # Default value of options.
 options=()
-interactive=0
 style=auto
 public_key=auto
 numbering=auto

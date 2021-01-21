@@ -9,9 +9,10 @@ magenta="$(tput setaf 5)"
 echo
 echo ${yellow}'# Options'${normal}
 echo
-echo    ${red}-l, --last-one${normal}"  "${cyan}\$through${normal}"  = "${magenta}$through${normal}
-echo    ${red}-p, --preview${normal}"  "${cyan}\$preview${normal}"  = "${magenta}$preview${normal}
-echo    ${red}-q, --quiet${normal}"    "${cyan}\$verbose${normal}"  = "${magenta}$verbose${normal}
+echo    ${red}-i, --interactive${normal}"  "${cyan}\$interactive${normal}"  = "${magenta}$interactive${normal}
+echo    ${red}-l, --last-one${normal}" ... "${cyan}\$through${normal}" .... = "${magenta}$through${normal}
+echo    ${red}-p, --preview${normal}" .... "${cyan}\$preview${normal}" .... = "${magenta}$preview${normal}
+echo    ${red}-q, --quiet${normal}" ...... "${cyan}\$verbose${normal}" .... = "${magenta}$verbose${normal}
 
 echo
 echo ${yellow}'# New Arguments (Operand)'${normal}

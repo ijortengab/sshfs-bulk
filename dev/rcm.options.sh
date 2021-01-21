@@ -1,6 +1,7 @@
 #!/bin/bash
 FLAG=(
     '--preview|-p'
+    '--interactive|-i'
 )
 CSV=(
     'long:--quiet,short:-q,parameter:verbose,flag_option:reverse'

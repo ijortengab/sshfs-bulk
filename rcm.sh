@@ -15,6 +15,7 @@ _new_arguments=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --interactive|-i) interactive=1; shift ;;
         --last-one|-l) through=0; shift ;;
         --preview|-p) preview=1; shift ;;
         --quiet|-q) verbose=0; shift ;;
@@ -29,8 +30,9 @@ _new_arguments=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -[^-]*) OPTIND=1
-            while getopts ":lpq" opt; do
+            while getopts ":ilpq" opt; do
                 case $opt in
+                    i) interactive=1 ;;
                     l) through=0 ;;
                     p) preview=1 ;;
                     q) verbose=0 ;;
@@ -55,7 +57,6 @@ RCM_PORT_START=49152
 
 # Default value of options.
 options=()
-interactive=0
 style=auto
 public_key=auto
 numbering=auto
@@ -444,7 +445,6 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --interactive|-i) interactive=1; shift ;;
         --style=*) style="$(echo $1 | cut -c9-)"; shift ;;
         --public-key=*) public_key="$(echo $1 | cut -c14-)"; shift ;;
         --number=*) numbering="$(echo $1 | cut -c10-)"; shift ;;
@@ -455,9 +455,8 @@ setOptions() {
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":s:k:n:i" opt; do
+                while getopts ":s:k:n:" opt; do
                     case $opt in
-                        i) interactive=1 ;;
                         s) style="$OPTARG" ;;
                         k) public_key="$OPTARG" ;;
                         n) numbering="$OPTARG" ;;
@@ -867,7 +866,7 @@ executeOpenPort() {
 #   None
 executeHistory() {
     local files_by_name string
-    if [[ $interactive == 0 ]];then
+    if [[ ! $interactive == 1 ]];then
         mkdir -p $RCM_DIR_ROUTE
         cd $RCM_DIR_ROUTE
         files_by_name=(`ls -vr $RCM_DIR_ROUTE | head -10`)
