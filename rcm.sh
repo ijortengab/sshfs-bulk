@@ -11,6 +11,18 @@
 # - temporary variable (return string from function) prefix with _underscore.
 # - function is camelCase.
 # - indent is 4 spaces.
+_new_arguments=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --preview|-p) preview=1; shift ;;
+        *) _new_arguments+=("$1"); shift ;;
+    esac
+done
+
+set -- "${_new_arguments[@]}"
+
+unset _new_arguments
 
 # Define.
 RCM_ROOT=$HOME/.config/rcm
@@ -22,7 +34,6 @@ RCM_PORT_START=49152
 # Default value of options.
 options=()
 verbose=1
-preview=0
 through=1
 interactive=0
 style=auto
@@ -413,7 +424,6 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --preview|-p) preview=1 ; shift;;
         --quiet|-q) verbose=0 ; shift;;
         --last-one|-l) through=0 ; shift;;
         --interactive|-i) interactive=1; shift ;;
@@ -427,9 +437,8 @@ setOptions() {
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":pqls:k:n:i" opt; do
+                while getopts ":qls:k:n:i" opt; do
                     case $opt in
-                        p) preview=1 ;;
                         q) verbose=0 ;;
                         l) through=0 ;;
                         i) interactive=1 ;;

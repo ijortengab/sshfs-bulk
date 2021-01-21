@@ -378,7 +378,6 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --preview|-p) preview=1 ; shift;;
         --quiet|-q) verbose=0 ; shift;;
         --last-one|-l) through=0 ; shift;;
         --interactive|-i) interactive=1; shift ;;
@@ -392,9 +391,8 @@ setOptions() {
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":pqls:k:n:i" opt; do
+                while getopts ":qls:k:n:i" opt; do
                     case $opt in
-                        p) preview=1 ;;
                         q) verbose=0 ;;
                         l) through=0 ;;
                         i) interactive=1 ;;

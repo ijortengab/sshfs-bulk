@@ -11,6 +11,8 @@
 # - temporary variable (return string from function) prefix with _underscore.
 # - function is camelCase.
 # - indent is 4 spaces.
+source $(dirname $0)/rcm.parse_options.sh
+source $(dirname $0)/rcm.debug.sh
 
 source $(dirname $0)/bash/functions/var-dump/dev/var-dump.function.sh
 # Define.
@@ -23,7 +25,6 @@ RCM_PORT_START=49152
 # Default value of options.
 options=()
 verbose=1
-preview=0
 through=1
 interactive=0
 style=auto
@@ -42,7 +43,10 @@ if [[ $1 == "" ]];then
     # clear
     exit
 fi
+VarDump ---
+VarDump '<$1>'"$1"
 arguments=("$@")
+VarDump arguments
 setOptions once # Parse options (locate between rcm and command).
 validateArguments
 setOptions # Parse options (locate after command).
