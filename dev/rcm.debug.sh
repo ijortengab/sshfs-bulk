@@ -13,6 +13,7 @@ echo    ${red}-i, --interactive${normal}"  "${cyan}\$interactive${normal}"  = "$
 echo    ${red}-l, --last-one${normal}" ... "${cyan}\$through${normal}" .... = "${magenta}$through${normal}
 echo    ${red}-p, --preview${normal}" .... "${cyan}\$preview${normal}" .... = "${magenta}$preview${normal}
 echo    ${red}-q, --quiet${normal}" ...... "${cyan}\$verbose${normal}" .... = "${magenta}$verbose${normal}
+echo    ${red}-s, --style${normal}" ...... "${cyan}\$style${normal}" ...... = "${magenta}$style${normal}
 
 echo
 echo ${yellow}'# New Arguments (Operand)'${normal}

@@ -378,19 +378,16 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --style=*) style="$(echo $1 | cut -c9-)"; shift ;;
         --public-key=*) public_key="$(echo $1 | cut -c14-)"; shift ;;
         --number=*) numbering="$(echo $1 | cut -c10-)"; shift ;;
-        -s) style=$2; shift; shift ;;
         -k) public_key=$2; shift; shift ;;
         -n) numbering=$2; shift; shift ;;
         *)
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":s:k:n:" opt; do
+                while getopts ":k:n:" opt; do
                     case $opt in
-                        s) style="$OPTARG" ;;
                         k) public_key="$OPTARG" ;;
                         n) numbering="$OPTARG" ;;
                         \?) echo "Invalid option: -$OPTARG" >&2 ;;
@@ -454,7 +451,7 @@ validateOptions() {
     case $style in
         jump) is_right=1 ;;
         tunnel) is_right=1 ;;
-        auto)
+        *)
             is_right=1
             vercomp `getSshVersion` 7.3
             if [[ $? -lt 2 ]];then

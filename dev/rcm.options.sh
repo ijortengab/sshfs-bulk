@@ -3,6 +3,9 @@ FLAG=(
     '--preview|-p'
     '--interactive|-i'
 )
+VALUE=(
+    '--style|-s'
+)
 CSV=(
     'long:--quiet,short:-q,parameter:verbose,flag_option:reverse'
     'long:--last-one,short:-l,parameter:through,flag_option:reverse'
