@@ -378,7 +378,6 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --last-one|-l) through=0 ; shift;;
         --interactive|-i) interactive=1; shift ;;
         --style=*) style="$(echo $1 | cut -c9-)"; shift ;;
         --public-key=*) public_key="$(echo $1 | cut -c14-)"; shift ;;
@@ -390,9 +389,8 @@ setOptions() {
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":ls:k:n:i" opt; do
+                while getopts ":s:k:n:i" opt; do
                     case $opt in
-                        l) through=0 ;;
                         i) interactive=1 ;;
                         s) style="$OPTARG" ;;
                         k) public_key="$OPTARG" ;;
@@ -710,7 +708,7 @@ executeSendKey() {
                 ssh_options=${ssh_route_options[$i]}
                 ssh_mass_arguments=${ssh_route_mass_arguments[$i]}
                 if [[ ! $i == $z ]];then
-                    if [[ $through == "1" ]];then
+                    if [[ ! $through == "0" ]];then
                         writeLinesSendKey "$destination" "$ssh_options" "$ssh_mass_arguments"
                         writeLines ''
                     fi
@@ -730,7 +728,7 @@ executeSendKey() {
                 ssh_options=${ssh_route_options[$i]}
                 ssh_mass_arguments=${ssh_route_mass_arguments[$i]}
                 if [[ ! $i == $z ]];then
-                    if [[ $through == "1" ]];then
+                    if [[ ! $through == "0" ]];then
                         writeLinesSendKey "$destination" "$ssh_options" "$ssh_mass_arguments"
                         writeLines ''
                     fi

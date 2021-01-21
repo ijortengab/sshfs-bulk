@@ -15,6 +15,7 @@ _new_arguments=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --last-one|-l) through=0; shift ;;
         --preview|-p) preview=1; shift ;;
         --quiet|-q) verbose=0; shift ;;
         *) _new_arguments+=("$1"); shift ;;
@@ -28,8 +29,9 @@ _new_arguments=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -[^-]*) OPTIND=1
-            while getopts ":pq" opt; do
+            while getopts ":lpq" opt; do
                 case $opt in
+                    l) through=0 ;;
                     p) preview=1 ;;
                     q) verbose=0 ;;
                 esac
@@ -53,7 +55,6 @@ RCM_PORT_START=49152
 
 # Default value of options.
 options=()
-through=1
 interactive=0
 style=auto
 public_key=auto
@@ -443,7 +444,6 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --last-one|-l) through=0 ; shift;;
         --interactive|-i) interactive=1; shift ;;
         --style=*) style="$(echo $1 | cut -c9-)"; shift ;;
         --public-key=*) public_key="$(echo $1 | cut -c14-)"; shift ;;
@@ -455,9 +455,8 @@ setOptions() {
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":ls:k:n:i" opt; do
+                while getopts ":s:k:n:i" opt; do
                     case $opt in
-                        l) through=0 ;;
                         i) interactive=1 ;;
                         s) style="$OPTARG" ;;
                         k) public_key="$OPTARG" ;;
@@ -775,7 +774,7 @@ executeSendKey() {
                 ssh_options=${ssh_route_options[$i]}
                 ssh_mass_arguments=${ssh_route_mass_arguments[$i]}
                 if [[ ! $i == $z ]];then
-                    if [[ $through == "1" ]];then
+                    if [[ ! $through == "0" ]];then
                         writeLinesSendKey "$destination" "$ssh_options" "$ssh_mass_arguments"
                         writeLines ''
                     fi
@@ -795,7 +794,7 @@ executeSendKey() {
                 ssh_options=${ssh_route_options[$i]}
                 ssh_mass_arguments=${ssh_route_mass_arguments[$i]}
                 if [[ ! $i == $z ]];then
-                    if [[ $through == "1" ]];then
+                    if [[ ! $through == "0" ]];then
                         writeLinesSendKey "$destination" "$ssh_options" "$ssh_mass_arguments"
                         writeLines ''
                     fi

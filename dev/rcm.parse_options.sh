@@ -2,6 +2,7 @@ _new_arguments=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --last-one|-l) through=0; shift ;;
         --preview|-p) preview=1; shift ;;
         --quiet|-q) verbose=0; shift ;;
         *) _new_arguments+=("$1"); shift ;;
@@ -15,8 +16,9 @@ _new_arguments=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -[^-]*) OPTIND=1
-            while getopts ":pq" opt; do
+            while getopts ":lpq" opt; do
                 case $opt in
+                    l) through=0 ;;
                     p) preview=1 ;;
                     q) verbose=0 ;;
                 esac
