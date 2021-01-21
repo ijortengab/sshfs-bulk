@@ -18,6 +18,8 @@ while [[ $# -gt 0 ]]; do
         --interactive|-i) interactive=1; shift ;;
         --last-one|-l) through=0; shift ;;
         --preview|-p) preview=1; shift ;;
+        --public-key=*|-k=*) public_key="${1#*=}"; shift ;;
+        --public-key|-k) if [[ ! $2 == "" && ! $2 =~ ^-[^-] ]]; then public_key="$2"; shift; fi; shift ;;
         --quiet|-q) verbose=0; shift ;;
         --style=*|-s=*) style="${1#*=}"; shift ;;
         --style|-s) if [[ ! $2 == "" && ! $2 =~ ^-[^-] ]]; then style="$2"; shift; fi; shift ;;
@@ -32,11 +34,12 @@ _new_arguments=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -[^-]*) OPTIND=1
-            while getopts ":ilpqs:" opt; do
+            while getopts ":ilpk:qs:" opt; do
                 case $opt in
                     i) interactive=1 ;;
                     l) through=0 ;;
                     p) preview=1 ;;
+                    k) public_key="$OPTARG" ;;
                     q) verbose=0 ;;
                     s) style="$OPTARG" ;;
                 esac
@@ -60,7 +63,6 @@ RCM_PORT_START=49152
 
 # Default value of options.
 options=()
-public_key=auto
 numbering=auto
 
 # Default value of flag.
@@ -447,17 +449,14 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --public-key=*) public_key="$(echo $1 | cut -c14-)"; shift ;;
         --number=*) numbering="$(echo $1 | cut -c10-)"; shift ;;
-        -k) public_key=$2; shift; shift ;;
         -n) numbering=$2; shift; shift ;;
         *)
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":k:n:" opt; do
+                while getopts ":n:" opt; do
                     case $opt in
-                        k) public_key="$OPTARG" ;;
                         n) numbering="$OPTARG" ;;
                         \?) echo "Invalid option: -$OPTARG" >&2 ;;
                         :) echo "Option -$OPTARG requires an argument." >&2 ;;
@@ -598,7 +597,7 @@ validateMinimalArgument() {
 validatePublicKey() {
     local tester is_exists
     is_exists=0
-    if [[ $public_key == 'auto' ]];then
+    if [[ $public_key == '' ]];then
         tester=("$HOME/.ssh/id_rsa.pub" "$HOME/.ssh/id_dsa.pub"
                 "$HOME/.ssh/id_ecdsa.pub" "$HOME/.ssh/id_ed25519.pub")
     else

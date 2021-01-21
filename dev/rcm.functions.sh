@@ -378,17 +378,14 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --public-key=*) public_key="$(echo $1 | cut -c14-)"; shift ;;
         --number=*) numbering="$(echo $1 | cut -c10-)"; shift ;;
-        -k) public_key=$2; shift; shift ;;
         -n) numbering=$2; shift; shift ;;
         *)
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":k:n:" opt; do
+                while getopts ":n:" opt; do
                     case $opt in
-                        k) public_key="$OPTARG" ;;
                         n) numbering="$OPTARG" ;;
                         \?) echo "Invalid option: -$OPTARG" >&2 ;;
                         :) echo "Option -$OPTARG requires an argument." >&2 ;;
@@ -529,7 +526,7 @@ validateMinimalArgument() {
 validatePublicKey() {
     local tester is_exists
     is_exists=0
-    if [[ $public_key == 'auto' ]];then
+    if [[ $public_key == '' ]];then
         tester=("$HOME/.ssh/id_rsa.pub" "$HOME/.ssh/id_dsa.pub"
                 "$HOME/.ssh/id_ecdsa.pub" "$HOME/.ssh/id_ed25519.pub")
     else

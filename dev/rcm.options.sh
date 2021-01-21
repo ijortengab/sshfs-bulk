@@ -5,6 +5,7 @@ FLAG=(
 )
 VALUE=(
     '--style|-s'
+    '--public-key|-k'
 )
 CSV=(
     'long:--quiet,short:-q,parameter:verbose,flag_option:reverse'
