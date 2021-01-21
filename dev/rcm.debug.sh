@@ -11,6 +11,7 @@ echo ${yellow}'# Options'${normal}
 echo
 echo    ${red}-i, --interactive${normal}"  "${cyan}\$interactive${normal}"  = "${magenta}$interactive${normal}
 echo    ${red}-l, --last-one${normal}" ... "${cyan}\$through${normal}" .... = "${magenta}$through${normal}
+echo    ${red}-n, --number${normal}" ..... "${cyan}\$numbering${normal}"    = "${magenta}$numbering${normal}
 echo    ${red}-p, --preview${normal}" .... "${cyan}\$preview${normal}" .... = "${magenta}$preview${normal}
 echo    ${red}-k, --public-key${normal}"   "${cyan}\$public_key${normal}"   = "${magenta}$public_key${normal}
 echo    ${red}-q, --quiet${normal}" ...... "${cyan}\$verbose${normal}" .... = "${magenta}$verbose${normal}

@@ -24,7 +24,6 @@ RCM_PORT_START=49152
 
 # Default value of options.
 options=()
-numbering=auto
 
 # Default value of flag.
 add_func_get_pid_cygwin=0

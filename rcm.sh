@@ -17,6 +17,8 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --interactive|-i) interactive=1; shift ;;
         --last-one|-l) through=0; shift ;;
+        --number=*|-n=*) numbering="${1#*=}"; shift ;;
+        --number|-n) if [[ ! $2 == "" && ! $2 =~ ^-[^-] ]]; then numbering="$2"; shift; fi; shift ;;
         --preview|-p) preview=1; shift ;;
         --public-key=*|-k=*) public_key="${1#*=}"; shift ;;
         --public-key|-k) if [[ ! $2 == "" && ! $2 =~ ^-[^-] ]]; then public_key="$2"; shift; fi; shift ;;
@@ -34,10 +36,11 @@ _new_arguments=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -[^-]*) OPTIND=1
-            while getopts ":ilpk:qs:" opt; do
+            while getopts ":iln:pk:qs:" opt; do
                 case $opt in
                     i) interactive=1 ;;
                     l) through=0 ;;
+                    n) numbering="$OPTARG" ;;
                     p) preview=1 ;;
                     k) public_key="$OPTARG" ;;
                     q) verbose=0 ;;
@@ -63,7 +66,6 @@ RCM_PORT_START=49152
 
 # Default value of options.
 options=()
-numbering=auto
 
 # Default value of flag.
 add_func_get_pid_cygwin=0
@@ -449,20 +451,10 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --number=*) numbering="$(echo $1 | cut -c10-)"; shift ;;
-        -n) numbering=$2; shift; shift ;;
         *)
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
-                OPTIND=1
-                while getopts ":n:" opt; do
-                    case $opt in
-                        n) numbering="$OPTARG" ;;
-                        \?) echo "Invalid option: -$OPTARG" >&2 ;;
-                        :) echo "Option -$OPTARG requires an argument." >&2 ;;
-                    esac
-                done
-                shift $((OPTIND-1))
+                shift
             else
                 # Mass arguments dikembalikan ke variable semula.
                 if [[ $loop == once ]];then
@@ -632,7 +624,7 @@ validatePublicKey() {
 #   None
 validateNumberingOpenPort() {
     local host_port z
-    if [[ $numbering == 'auto' ]];then
+    if [[ $numbering == '' ]];then
         return 0
     fi
     if [[ ! $numbering =~ ^[1-9]+[0-9]*$ ]];then
@@ -987,7 +979,7 @@ populateTunnel() {
         else
             set_random_port=1
             if [[ $i == $last_index ]];then
-                if [[ ! $numbering == 'auto' ]];then
+                if [[ ! $numbering == '' ]];then
                     set_random_port=0
                     _local_port=$numbering
                 fi

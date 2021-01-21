@@ -378,20 +378,10 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --number=*) numbering="$(echo $1 | cut -c10-)"; shift ;;
-        -n) numbering=$2; shift; shift ;;
         *)
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
-                OPTIND=1
-                while getopts ":n:" opt; do
-                    case $opt in
-                        n) numbering="$OPTARG" ;;
-                        \?) echo "Invalid option: -$OPTARG" >&2 ;;
-                        :) echo "Option -$OPTARG requires an argument." >&2 ;;
-                    esac
-                done
-                shift $((OPTIND-1))
+                shift
             else
                 # Mass arguments dikembalikan ke variable semula.
                 if [[ $loop == once ]];then
@@ -561,7 +551,7 @@ validatePublicKey() {
 #   None
 validateNumberingOpenPort() {
     local host_port z
-    if [[ $numbering == 'auto' ]];then
+    if [[ $numbering == '' ]];then
         return 0
     fi
     if [[ ! $numbering =~ ^[1-9]+[0-9]*$ ]];then
@@ -916,7 +906,7 @@ populateTunnel() {
         else
             set_random_port=1
             if [[ $i == $last_index ]];then
-                if [[ ! $numbering == 'auto' ]];then
+                if [[ ! $numbering == '' ]];then
                     set_random_port=0
                     _local_port=$numbering
                 fi
