@@ -16,6 +16,26 @@ _new_arguments=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --preview|-p) preview=1; shift ;;
+        --quiet|-q) verbose=0; shift ;;
+        *) _new_arguments+=("$1"); shift ;;
+    esac
+done
+
+set -- "${_new_arguments[@]}"
+
+_new_arguments=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -[^-]*) OPTIND=1
+            while getopts ":pq" opt; do
+                case $opt in
+                    p) preview=1 ;;
+                    q) verbose=0 ;;
+                esac
+            done
+            shift "$((OPTIND-1))"
+            ;;
         *) _new_arguments+=("$1"); shift ;;
     esac
 done
@@ -33,7 +53,6 @@ RCM_PORT_START=49152
 
 # Default value of options.
 options=()
-verbose=1
 through=1
 interactive=0
 style=auto
@@ -424,7 +443,6 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --quiet|-q) verbose=0 ; shift;;
         --last-one|-l) through=0 ; shift;;
         --interactive|-i) interactive=1; shift ;;
         --style=*) style="$(echo $1 | cut -c9-)"; shift ;;
@@ -437,9 +455,8 @@ setOptions() {
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":qls:k:n:i" opt; do
+                while getopts ":ls:k:n:i" opt; do
                     case $opt in
-                        q) verbose=0 ;;
                         l) through=0 ;;
                         i) interactive=1 ;;
                         s) style="$OPTARG" ;;
@@ -1482,7 +1499,7 @@ writeLines() {
 # Returns:
 #   None
 writeLinesVerbose() {
-    if [[ $verbose == 1 ]];then
+    if [[ ! $verbose == 0 ]];then
         writeLines "$1" "$2"
     fi
 }

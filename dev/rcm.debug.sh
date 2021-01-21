@@ -10,6 +10,7 @@ echo
 echo ${yellow}'# Options'${normal}
 echo
 echo    ${red}-p, --preview${normal}"  "${cyan}\$preview${normal}"  = "${magenta}$preview${normal}
+echo    ${red}-q, --quiet${normal}"    "${cyan}\$verbose${normal}"  = "${magenta}$verbose${normal}
 
 echo
 echo ${yellow}'# New Arguments (Operand)'${normal}

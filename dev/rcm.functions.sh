@@ -378,7 +378,6 @@ setOptions() {
     while [[ $# -gt 0 ]]; do
         case $1 in
         -) shift;;
-        --quiet|-q) verbose=0 ; shift;;
         --last-one|-l) through=0 ; shift;;
         --interactive|-i) interactive=1; shift ;;
         --style=*) style="$(echo $1 | cut -c9-)"; shift ;;
@@ -391,9 +390,8 @@ setOptions() {
             if [[ $1 =~ ^- ]];then
                 # Reset builtin function getopts.
                 OPTIND=1
-                while getopts ":qls:k:n:i" opt; do
+                while getopts ":ls:k:n:i" opt; do
                     case $opt in
-                        q) verbose=0 ;;
                         l) through=0 ;;
                         i) interactive=1 ;;
                         s) style="$OPTARG" ;;
@@ -1436,7 +1434,7 @@ writeLines() {
 # Returns:
 #   None
 writeLinesVerbose() {
-    if [[ $verbose == 1 ]];then
+    if [[ ! $verbose == 0 ]];then
         writeLines "$1" "$2"
     fi
 }
