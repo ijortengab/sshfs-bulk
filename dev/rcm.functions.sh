@@ -36,47 +36,38 @@
 # $command = "login"
 # ```
 #
-# $verbose - Default value true (1). Options `--quiet` atau `-q` akan
+# $verbose - Default value adalah ''. Options `--quiet` atau `-q` akan
 # mengubahnya menjadi false (0). Apabila bernilai false (0) maka rcm akan
 # menggenerate code yang menghasilkan standard output.
 #
-# $preview - Default value false (0). Options `--preview` atau `-p` akan
+# $preview - Default value adalah ''. Options `--preview` atau `-p` akan
 # mengubahnya menjadi true (1). Apabila bernilai true (1) maka rcm akan
 # menampilkan generate code sebagai standard output dan tidak mengeksekusi
 # generate code tersebut.
 #
-# $through - Default value true (1). Options `--last-one` atau `-l` akan
+# $through - Default value adalah ''. Options `--last-one` atau `-l` akan
 # mengubahnya menjadi false (0). Command yang menggunakan variable ini adalah
-# `send-key`. Apabila bernilai true (1), maka seluruh address (host) yang
+# `send-key`. Apabila bernilai not false (!0), maka seluruh address (host) yang
 # berada pada $route akan diberi tindakan sesuai command (dalam hal ini adalah
 # send public key). Apabila bernilai false (0), maka hanya address (host)
 # destination saja yang akan diberi tindakan sesuai command.
 #
-# $style - Default value adalah "auto". Value tersedia adalah "auto", "jump",
+# $style - Default value adalah ''. Value tersedia adalah "", "jump",
 # dan "tunnel". Options `--style` atau `-s` tersedia untuk mengubah default
 # value. Apabila bernilai `jump`, maka generate code akan menggunakan option
 # ssh bernama ProxyJump untuk melakukan lompatan koneksi, sementara apabila
 # bernilai `tunnel`, maka generate code akan membuat tunnel (local port
-# forwarding) untuk melakukan lompatan koneksi. Jika bernilai `auto`, maka
+# forwarding) untuk melakukan lompatan koneksi. Jika bernilai ``, maka
 # akan menggunakan style `jump` jika open-ssh client berada pada versi 7.3
 # keatas, selain itu maka akan menggunakan style `tunnel`.
 #
-# $public_key - Default value adalah "auto". Command yang menggunakan variable
-# ini adalah `send-key`. Jika bernilai auto, maka `rcm` akan mencari public key
+# $public_key - Default value adalah ''. Command yang menggunakan variable
+# ini adalah `send-key`. Jika bernilai '', maka `rcm` akan mencari public key
 # sesuai urutan dari ssh client (lihat pada validatePublicKey::tester).
 #
-# $numbering - Default value adalah "auto". Command yang menggunakan variable
+# $numbering - Default value adalah ''. Command yang menggunakan variable
 # ini adalah `open-port`. Command open-port menggunakan option ini untuk
 # mengeset port number.
-#
-# ```
-# $verbose = "1"
-# $preview = "0"
-# $through = "1"
-# $style = "auto"
-# $public_key = "auto"
-# $numbering = "auto"
-# ```
 #
 # $route* - Array. Kumpulan dari address yang dilalui. Tiap address memiliki
 # format `[USER@]HOST[:PORT]`. Jika route hanya terdiri dari satu address,
@@ -215,26 +206,6 @@ vercomp () {
         fi
     done
     return 0
-}
-
-# Mengecek apakah sebuah value sudah ada di dalam array.
-# Credit: https://stackoverflow.com/a/8574392/7074586
-#
-# Globals:
-#   None
-#
-# Arguments:
-#   $1: Value yang akan dicek
-#   $2: Array sebagai referensi
-#
-# Returns:
-#   0: Value berada pada array
-#   1: Value tidak berada pada array
-inArray () {
-    local e match="$1"
-    shift
-    for e; do [[ "$e" == "$match" ]] && return 0; done
-    return 1
 }
 
 # Mengecek bilangan adalah genap.
@@ -966,6 +937,27 @@ populateTunnel() {
 # penyimpanan referensi berbagai local port yang telah dibuat.
 getRandomLocalPorts() {
     local string files port file
+
+    # Mengecek apakah sebuah value sudah ada di dalam array.
+    # Credit: https://stackoverflow.com/a/8574392/7074586
+    #
+    # Globals:
+    #   None
+    #
+    # Arguments:
+    #   $1: Value yang akan dicek
+    #   $2: Array sebagai referensi
+    #
+    # Returns:
+    #   0: Value berada pada array
+    #   1: Value tidak berada pada array
+    inArray () {
+        local e match="$1"
+        shift
+        for e; do [[ "$e" == "$match" ]] && return 0; done
+        return 1
+    }
+
     mkdir -p "${RCM_DIR_PORTS}"
     cd "${RCM_DIR_PORTS}"
     # Mencari file berdasarkan contain.

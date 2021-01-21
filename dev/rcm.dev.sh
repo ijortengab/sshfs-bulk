@@ -22,9 +22,6 @@ RCM_DIR_ROUTE=$RCM_ROOT/route
 RCM_EXE=$RCM_ROOT/exe
 RCM_PORT_START=49152
 
-# Default value of options.
-options=()
-
 # Default value of flag.
 add_func_get_pid_cygwin=0
 add_var_tunnel_success=0
