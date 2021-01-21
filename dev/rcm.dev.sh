@@ -36,28 +36,13 @@ add_var_tunnel_success=0
 
 source $(dirname $0)/rcm.functions.sh
 
-# Jika dari terminal. Contoh: `rcm login user@localhost`.
-if [ -t 0 ]; then
-    # Jika tidak ada argument.
-    if [[ $1 == "" ]];then
-        # Coming Soon.
-        # clear
-        exit
-    fi
-    arguments=("$@")
-# Jika dari standard input. Contoh: `echo user@localhost | rcm login`.
-else
-    # Merge argument dari rcm dengan standard input.
-    while [[ $# -gt 0 ]]; do
-        arguments+=("$1")
-        shift
-    done
-    set -- ${@:-$(</dev/stdin)}
-    while [[ $# -gt 0 ]]; do
-        arguments+=("$1")
-        shift
-    done
+# Jika tidak ada argument.
+if [[ $1 == "" ]];then
+    # Coming Soon.
+    # clear
+    exit
 fi
+arguments=("$@")
 setOptions once # Parse options (locate between rcm and command).
 validateArguments
 setOptions # Parse options (locate after command).
